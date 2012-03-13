@@ -23,8 +23,6 @@
   class ClusterMembership < ActiveRecord::Base
     belongs_to :gene
     belongs_to :cluster
-    # before_save :update_paralog_status
-    # after_save :update_number_of_cluster_members
     
     def update_number_of_cluster_members
       cluster = self.cluster

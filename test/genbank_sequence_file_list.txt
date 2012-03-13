@@ -1,0 +1,2 @@
+test_data/seq1.gbk	strain1
+test_data/seq2.gbk	strain2

@@ -1,4 +1,3 @@
-# a class to help parse method arguments and check a) if required arguments are present and b) if they are of the correct type
 module MethodArgumentParser
   class Parser
 

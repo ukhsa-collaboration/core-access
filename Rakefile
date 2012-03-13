@@ -13,12 +13,13 @@ require 'jeweler'
 Jeweler::Tasks.new do |gem|
   # gem is a Gem::Specification... see http://docs.rubygems.org/read/chapter/20 for more options
   gem.name = "core-access"
-  gem.homepage = "http://github.com/aunderwo/core-access"
+  gem.homepage = "http://github.com/hpa-bioinformatics/core-access"
   gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
-  gem.email = "anthony.underwood@hpa.org.uk"
+  gem.summary = %Q{Prokaryotic core and accessory gene database builder}
+  gem.description = %Q{Using simple or rich sequences as input, this gem will build a database that can be queried to find the distribution of genes in specific subsets of the input sequences}
+  gem.email = "email2ants@gmail.com"
   gem.authors = ["Anthony Underwood"]
+  gem.executables = ["core-access"]
   # Include your dependencies below. Runtime dependencies are required when using your gem,
   # and development dependencies are only needed for development (ie running rake tasks, tests, etc)
   #  gem.add_runtime_dependency 'jabber4r', '> 0.1'
@@ -42,8 +43,8 @@ end
 
 task :default => :test
 
-require 'rake/rdoctask'
-Rake::RDocTask.new do |rdoc|
+require 'rdoc/task'
+RDoc::Task.new do |rdoc|
   version = File.exist?('VERSION') ? File.read('VERSION') : ""
 
   rdoc.rdoc_dir = 'rdoc'

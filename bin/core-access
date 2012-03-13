@@ -1,0 +1,254 @@
+#! /usr/bin/env ruby
+require 'core-access'
+include Clustering
+require 'utils/file_utils'
+
+gem "choice", "~> 0.1.5"
+require 'choice'
+
+# gem "slop", "~> 3.0.4"
+# require 'slop'
+
+# parse options
+# opts = Slop.parse :help => true, :banner => "core-access [OPTIONS]", :optional_arguments => true do
+#   on :d, :database, 'Name of database, (required)'
+# end
+
+core_access_command = ARGV.shift
+
+Choice.options do
+  banner 'core-access COMMAND [OPTIONS]'
+  header 'COMMAND can be create, annotate or search'
+  header ''
+  header 'Required arguments:'
+
+
+  option :database, :required  => true do
+    short '-db'
+    long '--database DATABASE'
+    desc 'Path to database file (required)'
+  end
+
+  separator ''
+  separator 'Optional arguments:'
+  option :help do
+    short '-h'
+    long '--help'
+    desc 'Show this message'
+  end
+
+  separator ''
+  separator 'Arguments for all commands:'
+
+  option :output_dir do
+    short '-od'
+    long '--output_dir'
+    desc 'The path to a directory where the results will be written (default is current directory)'
+    default '.'
+  end
+
+  separator ''
+  separator 'Arguments for create command:'
+
+  option :sequence_file_list do
+    short '-fl'
+    long '--file_list'
+    desc 'The path and filename of a file containing the sequences that contain the genes to be clustered'
+    desc 'These can be in fasta, genbank or embl format. If in fasta format Glimmer3 will be used to predict the genes within them'
+    desc 'Each filepath should be listed on a new line in the file'
+  end
+
+  option :sequence_file_dir do
+    short '-fd'
+    long '--sequence_file_dir'
+    desc 'A root directory where all the sequence files can be found'
+  end
+
+  option :glimmer_dir do
+    short '-gd'
+    long '--glimmer_dir'
+    desc 'The directory that contains the Glimmer3 files (binaries and scripts)'
+  end
+
+  option :training_sequence_path do
+    short '-ts'
+    long '--training_sequence_path'
+    desc 'The path and filename of a genbank sequence whose coding sequences will be used to training the Glimmer3 gene prediction software'
+  end
+
+  option :cdhit_dir do
+    short '-cd'
+    long '--cdhit_dir'
+    desc 'The directory that contains the cd-hit executable'
+  end
+
+  option :clustering_cutoffs do
+    short '-cc'
+    long '--clustering_cutoffs'
+    desc 'The cutoffs used when performing the initial heirachical clustering with cd-hit (default 99-98-95-90-85)'
+    default '99-98-95-90-85'
+  end
+
+  option :make_heirachical_super_clusters do
+    short '-sc'
+    long '--supercluster_cutoff'
+    desc 'The cutoff for making heirachical superclusters of clusters with cd-hit'
+    cast Integer
+  end
+
+  separator ''
+  separator 'Arguments for annotate command:'
+
+  option :blast_dir do
+    short '-bd'
+    long '--blast_dir'
+    desc 'The path to the blast executables/binaries'
+  end
+
+  separator ''
+  separator 'Blast arguments for annotate command:'
+
+  option :reference_blast_program do
+    short '-rbp'
+    long '--reference_blast_program'
+    desc 'The blast program to use when searching the reference sequences supplied (Default blastn)'
+    default 'blastn'
+  end
+
+  option :reference_percent_identity_cutoff do
+    short '-rbc'
+    long '--reference_percent_identity_cutoff'
+    desc 'The percent identity cutoff to use for significant hits against the reference sequences supplied (Default 95)'
+    cast Integer
+    default 95
+  end
+
+  option :reference_minimum_hit_length do
+    short '-rbl'
+    long '--reference_minimum_hit_length'
+    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits against the reference sequences supplied'
+    cast Integer
+    default 85
+  end
+
+  option :microbial_genomes_database do
+    short '-mdb'
+    long '--microbial_genomes_database'
+    desc 'The path to a microbial genomes database where the genes have been extracted and formatted in a blast database (see ReadMe for details -r option)'
+  end
+
+  option :microbial_genomes_blast_program do
+    short '-mbp'
+    long '--microbial_genomes_blast_program'
+    desc 'The blast program to use when searching a microbial genomes database(Default blastn)'
+    default 'blastn'
+  end
+
+  option :microbial_genomes_percent_identity_cutoff do
+    short '-mbc'
+    long '--microbial_genomes_percent_identity_cutoff'
+    desc 'The percent identity cutoff to use for significant hits against ta microbial genomes database(Default 85)'
+    cast Integer
+    default 85
+  end
+
+  option :microbial_genomes_minimum_hit_length do
+    short '-mbl'
+    long '--microbial_genomes_minimum_hit_length'
+    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits against a microbial genomes database (Deafult 85)'
+    cast Integer
+    default 85
+  end
+
+  option :ncbi_blast_program do
+    short '-nbp'
+    long '--ncbi_blast_program'
+    desc 'The blast program to use when searching NCBI nr database(Default blastp)'
+    default 'blastp'
+  end
+
+  option :ncbi_percent_identity_cutoff do
+    short '-rbc'
+    long '--ncbi_percent_identity_cutoff'
+    desc 'The percent identity cutoff to use for significant hits against the rNCBI nr database (Default 80)'
+    cast Integer
+    default 80
+  end
+
+  option :ncbi_minimum_hit_length do
+    short '-rbl'
+    long '--ncbi_minimum_hit_length'
+    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits against the NCBI nr database (Default 80)'
+    cast Integer
+    default 80
+  end
+
+  option 
+  separator ''
+  separator 'Arguments for search command:'
+
+  option :find_core_genes do
+    short '-cg'
+    long '--core_genes'
+    desc 'Find core genes in the cluster database'
+  end
+
+end
+
+abort(Choice.help) if core_access_command.nil? || !["create", "annotate", "search"].include?(core_access_command)
+
+puts Choice.choices.inspect
+
+# determine which action needs to be carried out based on the command used
+case core_access_command
+when "create"
+  # determine glimmer directory
+  glimmer_dir = determine_glimmer_directory(Choice.choices)
+  
+  # create input sequence array
+  abort("You must specify a file with the input sequences files using the -fl option") unless Choice.choices[:sequence_file_list]
+  sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
+
+  if glimmer_dir.nil? && !sequence_files.select{|f| f =~ /(\.fa|\.fas|\.fsa|\.fasta)$/}.empty?
+    abort("Your input sequence files contain fasta formats therefore you must either supply the directory that contains the glimmer files (binaries and scripts) or glimmer3 must be in the path")
+  else
+    abort("Can not find glimmer3 in #{glimmer_dir}/bin") unless File.executable?("#{glimmer_dir}/bin/glimmer3")
+  end
+  # optionally append a common sequence file directory
+  if Choice.choices[:sequence_file_dir]
+    sequence_files.map!{|sf| "#{Choice.choices[:sequence_file_dir]}/#{sf}"}
+  end
+
+  # make multi fasta file from genomes
+  create_cds_multi_fasta_file(:training_sequence_path => Choice.choices[:training_sequence_path], :root_folder  => Choice.choices[:output_dir], :cds_multi_fasta_file => "#{Choice.choices[:output_dir]}/cds_proteins.fas", :sequence_files => sequence_files)
+
+  # use cdhit to record cluster info
+  # determine cdhit directory
+  if Choice.choices[:cdhit_dir]
+    cdhit_dir = Choice.choices[:cdhit_dir]
+  else
+    cdhit_dir = which("cdhit")
+    cdhit_dir = File.dirname(cdhit_dir) unless cdhit_dir.nil? 
+  end
+  abort("Can not find cd-hit") if cdhit_dir.nil? 
+  abort("Can not find cd-hit in #{cdhit_dir}") unless File.executable?("#{cdhit_dir}/cd-hit")
+
+  clustering_cutoffs = Choice.choices[:clustering_cutoffs].split("-").map{|n| n.to_i}
+  make_heirachical_clusters(:root_folder  => Choice.choices[:output_dir],:cds_multi_fasta_file => "#{Choice.choices[:output_dir]}/cds_proteins.fas", :clustering_cutoffs => clustering_cutoffs, :cdhit_dir => cdhit_dir)
+
+  # make database from cd-hit output
+  make_db_clusters(:root_folder => Choice.choices[:output_dir], :db_location => Choice.choices[:database], :strain_names => strain_names, :clustering_cutoffs => clustering_cutoffs)
+
+  # add represenatives to clusters
+  add_representative_sequences_to_cluster(:root_folder => Choice.choices[:output_dir], :db_location => Choice.choices[:database], :sequence_files => sequence_files, :strain_names => strain_names)
+
+  # add super clusters if cutoff supplied
+  if Choice.choices[:make_heirachical_super_clusters]
+      make_super_clusters(:cdhit_dir => cdhit_dir, :cutoff => Choice.choices[:make_heirachical_super_clusters], :db_location => Choice.choices[:database])
+  end
+when "search"
+  if Choice.choices[:find_core_genes]
+    core_clusters = find_core_clusters(:db_location => Choice.choices[:database])
+    puts core_clusters.size
+  end
+end

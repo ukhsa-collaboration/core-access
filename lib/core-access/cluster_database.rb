@@ -9,6 +9,7 @@ module ClusterDB
   end
 
   def test_connection(db_location = nil)
+    require 'active_record'
     begin
       ActiveRecord::Base.connection
     rescue ActiveRecord::ConnectionNotEstablished
@@ -33,10 +34,10 @@ module ClusterDB
       unless table_exists? :genes
         create_table :genes do |t|
           t.column :name,      :string
+          t.column :aa_length, :string
           t.column :location,  :string
           t.column :sequence, :string
           t.column :strain_id, :integer
-          t.column :category_id, :integer
         end
       end
 
@@ -57,6 +58,7 @@ module ClusterDB
         create_table :cluster_memberships do |t|
           t.column :cluster_id, :integer
           t.column :gene_id, :integer
+          t.column :status, :string
         end
       end
       

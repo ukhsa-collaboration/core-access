@@ -1,14 +1,22 @@
 module Clustering
-  require 'rubygems'
   gem "bio", "~> 1.4.2"
   require 'bio'
   require 'utils/hash_reverse_merge'
   require 'utils/method_argument_parser'
 
+  # Create a multi fasta file containing the genes of all the input sequences. If an input sequence is in fasta format then the genes will be predicted using Glimmer. Glimmer can be trained with a training sequence or with an existing glimmer model or just using itereated glimmer. This depends on the options supplied (see below)
+  # @param [Hash] options The options for the method
+  # @option options [String] :root_folder the path and name of the folder where the results files will be written
+  # @option options [String] :cds_multi_fasta_file The name of the multi fasta that will be created
+  # @option options [Array] :sequence_files An array of filepaths listing each of the input sequence files
+  # @option options [String] :training_sequence_path The path to a training sequence to be used in Glimmer  
+  # @option options [String] :training_model_prefix The path to the training model if a training model has already been created
+
   def create_cds_multi_fasta_file(options)
     require 'bioutils/rich_sequence_utils'
     require 'bioutils/glimmer'
-    include Glimmer
+    extend Glimmer
+
     default_options = {
       :cds_multi_fasta_file => "cds_proteins.fas"
     }
@@ -61,11 +69,16 @@ module Clustering
 
     cds_multi_fasta_protein_file.close
   end
-
+  # method to perform cdhit using heirachical cutoffs
+  # @param [Hash] options The options for the method
+  # @option options [String] :root_folder the path and name of the folder where the results files will be written
+  # @option options [String] :cds_multi_fasta_file The name of the multi fasta that will be created
+  # @option options [Array] :clustering_cutoffs The percent id cutoffs to use when performing heirachical clustering with cd-hit
+  # @option options [String] :cdhit_dir The directory containing the cd-hit executable
   def make_heirachical_clusters(options) # perform heirachical clustering with cd hit
     default_options = {
       :clustering_cutoffs => [99, 98, 95, 90, 85],
-      :cdhit_path => "/usr/local/cdhit/cd-hit",
+      :cdhit_dir => "/usr/local/cdhit",
     }
     options.reverse_merge!(default_options)
 
@@ -79,21 +92,28 @@ module Clustering
     options[:clustering_cutoffs].each_with_index do |clustering_cutoff, index|
       puts "Clustering proteins with cutoff #{clustering_cutoff}"
       if index == 0
-        `#{options[:cdhit_path]} -i #{options[:cds_multi_fasta_file]} -o cdhit_clusters-#{clustering_cutoff} -c #{clustering_cutoff/100.to_f} -n 5 -d 200`
+        `#{options[:cdhit_dir]}/cd-hit -i #{options[:cds_multi_fasta_file]} -o cdhit_clusters-#{clustering_cutoff} -c #{clustering_cutoff/100.to_f} -n 5 -d 200`
       else
-        `#{options[:cdhit_path]} -i cdhit_clusters-#{options[:clustering_cutoffs][index-1]} -o cdhit_clusters-#{clustering_cutoff} -c #{clustering_cutoff/100.to_f} -n 5 -d 200`
+        `#{options[:cdhit_dir]}/cd-hit -i cdhit_clusters-#{options[:clustering_cutoffs][index-1]} -o cdhit_clusters-#{clustering_cutoff} -c #{clustering_cutoff/100.to_f} -n 5 -d 200`
       end
     end
   end
 
+  # method to construct a database from cd-hit results
+  # @param [Hash] options The options for the method
+  # @option options [String] :root_folder the path and name of the folder where the results files will be written
+  # @option options [String] :db_location The path and name of the database to be created
+  # @option options [Array] :strain_names An array of strain names in the same order as the sequence files supplied to be clustered with cd-hit
+  # @option options [Array] :clustering_cutoffs The percent id cutoffs to use when performing heirachical clustering with cd-hit
+  # @option options [Boolean] :show_timings If true then for debug purposes the time taken to create 100 clusters will be printed to screen
   def make_db_clusters(options)
-    require 'clustering/cluster_database'
-    include ClusterDB
-    require 'clustering/cluster_models'
-    require 'clustering/cluster_classes'
+    require 'core-access/cluster_database'
+    extend ClusterDB
+    require 'core-access/cluster_models'
+    require 'core-access/cluster_classes'
     default_options = {
       :clustering_cutoffs => [99, 98, 95, 90, 85],
-      :show_timings => :false
+      :show_timings => false
     }
     options.reverse_merge!(default_options)
 
@@ -133,11 +153,16 @@ module Clustering
     update_cluster_number_of_strains(Cluster.find(:all))
 
   end
-
+  # method to construct a database from cd-hit results
+  # @param [Hash] options The options for the method
+  # @option options [String] :root_folder the path and name of the folder where the results files will be written
+  # @option options [String] :db_location The path and name of the database to be created
+  # @option options [Array] :strain_names An array of strain names in the same order as the sequence files supplied to be clustered with cd-hit
+  # @option options [Array] :sequence_files An array of filepaths listing each of the input sequence files. Should be the same order as the strain names
   def add_representative_sequences_to_cluster(options)
-    require 'clustering/cluster_database'
-    include ClusterDB
-    require 'clustering/cluster_models'
+    require 'core-access/cluster_database'
+    extend ClusterDB
+    require 'core-access/cluster_models'
     require 'bioutils/rich_sequence_utils'
 
     options = MethodArgumentParser::Parser.check_options options  do
@@ -161,14 +186,20 @@ module Clustering
     add_representatives_to_cluster(coding_sequences)
   end
 
+  # method to construct clusters of clusters at a specified cutoff (here called super clusters)
+  # @param [Hash] options The options for the method
+  # @option options [String] :db_location The path and name of the database to be created
+  # @option options [Integer] :cutoff The precent cutoff used to cluster the clusters with cd-hit
+  # @option options [String] :cdhit_dir The directory containing the cd-hit executable
   def make_super_clusters(options)
-    require 'clustering/cluster_database'
-    include ClusterDB
-    require 'clustering/cluster_models'
+    require 'core-access/cluster_database'
+    extend ClusterDB
+    require 'core-access/cluster_models'
     require 'tempfile'
 
     default_options = {
-      :cutoff  => 70
+      :cutoff  => 70,
+      :cdhit_dir => "/usr/local/cdhit"
     }
     options.reverse_merge!(default_options)
 
@@ -176,16 +207,17 @@ module Clustering
       option :db_location, :required => true, :type => :string
     end
 
+    Dir.chdir("/tmp")
+
     connection = make_db_connection(options[:db_location]).connection
 
     tmpfile_object = write_cluster_representatives_to_file
 
     # make cdhit clusters
-    `/usr/local/cdhit/cd-hit -i #{tmpfile_object.path} -o cdhit_super_clusters-#{options[:cutoff]} -c #{options[:cutoff]/100.to_f} -n 5  -d 200`
+    `#{options[:cdhit_dir]}/cd-hit -i #{tmpfile_object.path} -o cdhit_super_clusters-#{options[:cutoff]} -c #{options[:cutoff]/100.to_f} -n 5  -d 200`
 
     # read in cluster info from cdhit output
     super_clusters = read_super_clstr_file("cdhit_super_clusters-#{options[:cutoff]}.clstr")
-    # add_super_clusters_to_db_by_sql(connection, super_clusters, options[:cutoff])
     add_super_clusters_to_db(super_clusters, options[:cutoff])
 
     puts "updating cluster number_of_members and number_of_strains"
@@ -197,12 +229,25 @@ module Clustering
   end
 
   def annotate_clusters(options)
-    require 'clustering/cluster_database'
-    include ClusterDB
-    require 'clustering/cluster_models'
+    require 'core-access/cluster_database'
+    extend ClusterDB
+    require 'core-access/cluster_models'
     require 'genome/genome_reciprocal_hit_annotator'
     require 'bioutils/blast'
-    include Blast
+    extend Blast
+
+    default_options = {
+      :reference_blast_program => "blastn",
+      :reference_percent_identity_cutoff => 95,
+      :reference_minimum_hit_length => 85,
+      :microbial_genomes_blast_program => "blastn",
+      :microbial_genomes_percent_identity_cutoff => 85,
+      :microbial_genomes_minimum_hit_length => 85,
+      :ncbi_blast_program => "blastp",
+      :ncbi_percent_identity_cutoff => 80,
+      :ncbi_minimum_hit_length => 80
+    }
+    options.reverse_merge!(default_options)
 
     options = MethodArgumentParser::Parser.check_options options  do
       option :db_location, :required => true, :type => :string
@@ -215,16 +260,16 @@ module Clustering
     unless options[:reference_database_path]
       puts "Making reference sequence blast databases"
       # make protein blast reference database
-       blast_database_from_rich_sequences(:input_sequences => options[:reference_genomes], :database_labels => :full_annotation, :database_name => "reference_genomes", :protein => true, :final_db_location => "blast_databases")
+       blast_database_from_rich_sequences(:input_sequences => options[:reference_genomes], :database_labels => :full_annotation, :database_name => "reference_genomes", :protein => true, :final_db_location => "blast_databases", :formatdb_dir => options[:blast_dir])
       # make nucleotide blast reference database
-      blast_database_from_rich_sequences(:input_sequences => options[:reference_genomes], :database_labels => :full_annotation, :database_name => "reference_genomes", :protein => false, :final_db_location => "blast_databases")
+      blast_database_from_rich_sequences(:input_sequences => options[:reference_genomes], :database_labels => :full_annotation, :database_name => "reference_genomes", :protein => false, :final_db_location => "blast_databases", :formatdb_dir => options[:blast_dir])
       options[:reference_database_path] = "blast_databases/reference_genomes"
     end
     puts "Making blast database from cluster reference sequences"
     make_blast_databases_from_clusters
 
     representative_sequences = Array.new
-    Cluster.all.each do |cluster|
+    Cluster.order("id DESC").all.each do |cluster|
       next if cluster.representative.nil? # skip those clusters without a repesentative (super clusters)
       next unless cluster.representative.annotations.empty? # skip those clusters already annotated
       representative_cds = cluster.representative
@@ -248,20 +293,7 @@ module Clustering
       collected_annotations = representative_sequences_slices.forkoff :processes => options[:parallel_processors], :strategy => :file do |*representative_sequences_slice|
         cluster_annotation_array = Array.new
         representative_sequences_slice.each do |cluster_id, representative_biosequence|
-          puts "Annotating cluster #{cluster_id}"
-          reciprocal_hit_details = GenomeReciprocalHitAnnotator.annotate_sequence(:biosequence  => representative_biosequence,
-                        :query_sequence_database_name => "blast_databases/cluster_representatives",
-                        :reference_sequences_database_name => options[:reference_database_path],
-                        :reference_blast_program => "blastn",
-                        :reference_percent_identity_cutoff => 95,
-                        :reference_minimum_hit_length => 85,
-                        :microbial_genomes_blast_program => "blastn",
-                        :microbial_genomes_percent_identity_cutoff => 85,
-                        :microbial_genomes_minimum_hit_length => 85,
-                        :ncbi_blast_program => "blastp",
-                        :ncbi_percent_identity_cutoff => 80,
-                        :ncbi_minimum_hit_length => 80)
-          reciprocal_hit_details.delete_if{|hd| hd[0] =~ /(translation|transl_table)/} unless reciprocal_hit_details.nil?
+          reciprocal_hit_details = annotate_cluster_sequence(cluster_id, representative_biosequence)
           cluster_annotation_array << [cluster_id, reciprocal_hit_details]
         end
         cluster_annotation_array
@@ -275,21 +307,8 @@ module Clustering
     else
       # serial annotation
       representative_sequences.each do |cluster_id, representative_biosequence|
-        puts "Annotating cluster #{cluster_id}"
-        reciprocal_hit_details = GenomeReciprocalHitAnnotator.annotate_sequence(:biosequence  => representative_biosequence,
-                      :query_sequence_database_name => "blast_databases/cluster_representatives",
-                      :reference_sequences_database_name => options[:reference_database_path],
-                      :reference_blast_program => "blastn",
-                      :reference_percent_identity_cutoff => 95,
-                      :reference_minimum_hit_length => 85,
-                      :microbial_genomes_blast_program => "blastn",
-                      :microbial_genomes_percent_identity_cutoff => 85,
-                      :microbial_genomes_minimum_hit_length => 85,
-                      :ncbi_blast_program => "blastp",
-                      :ncbi_percent_identity_cutoff => 80,
-                      :ncbi_minimum_hit_length => 80)
-        reciprocal_hit_details.delete_if{|hd| hd[0] =~ /(translation|transl_table)/} unless reciprocal_hit_details.nil?
-          cluster_annotations[cluster_id] = reciprocal_hit_details # cluster_id as key , annotations as value
+        reciprocal_hit_details = annotate_cluster_sequence(cluster_id, representative_biosequence)
+        cluster_annotations[cluster_id] = reciprocal_hit_details # cluster_id as key , annotations as value
       end
 
     end
@@ -308,9 +327,9 @@ module Clustering
   end
 
   def find_shared_clusters(options)
-    require 'clustering/cluster_database'
-    include ClusterDB
-    require 'clustering/cluster_models'
+    require 'core-access/cluster_database'
+    extend ClusterDB
+    require 'core-access/cluster_models'
 
     default_options = {
       :unique  => false,
@@ -350,9 +369,9 @@ module Clustering
     }
     options.reverse_merge!(default_options)
     
-    require 'clustering/cluster_database'
-    include ClusterDB
-    require 'clustering/cluster_models'
+    require 'core-access/cluster_database'
+    extend ClusterDB
+    require 'core-access/cluster_models'
 
     test_connection(options[:db_location])
 
@@ -401,7 +420,6 @@ module Clustering
         exit
       end
       while sequence_entry = sequence_flatfile.next_entry
-        puts "Extracting CDS from #{sequence_entry.definition}"
         sequence = sequence_entry.seq
         sequence_entry.each_cds do |cds|
           cds_counter += 1
@@ -430,14 +448,21 @@ module Clustering
         end
         cluster = Array.new
       else
-        match_data = line.match(/\d+?\s+?(\d+)aa, >(\d+?-\d+?)\.\.\./)
+        match_data = line.match(/\d+?\s+?(\d+)aa, >(\d+?-\d+?)\.\.\.\s(.+)/)
         size = match_data.captures[0].to_i
         name = match_data.captures[1]
-        cluster << {:name => name, :size => size}
+        clustering_status = match_data.captures[2]
+        if clustering_status == "*"
+          clustering_status = "founder"
+        else
+          clustering_status =~ /at\s((\d|\.)+)%/
+          clustering_status = $1.to_f
+        end
+        cluster << {:name => name, :size => size, :clustering_status => clustering_status}
       end
     end
     clusters << cluster # add final cluster
-    return clusters # clusters is a format [[{:name => name1, :size => size1}, {:name => name2, :size => size2}], [{:name => name3, :size => size3}]] An array of arrays where each array member is an array of hash object representing cluster members with :name and :size keys
+    return clusters # clusters is a format [[{:name => name1, :size => size1, :clustering_status => clustering_status1}, {:name => name2, :size => size2, :clustering_status => clustering_status2}], [{:name => name3, :size => size3, :clustering_status => clustering_status3}]] An array of arrays where each array member is an array of hash object representing cluster members with :name and :size keys
   end
 
   def process_clusters(clusters_details, cluster_collection) # process clusters
@@ -460,7 +485,7 @@ module Clustering
         end
         
         if member.nil?
-          cluster_membership << {:cluster_index => cluster_index, :member => ClusterMember.new(cluster_member_detail[:name], cluster_member_detail[:size])}
+          cluster_membership << {:cluster_index => cluster_index, :member => ClusterMember.new(cluster_member_detail[:name], cluster_member_detail[:size], cluster_member_detail[:clustering_status])}
         else
           cluster_membership << {:cluster_index => cluster_index, :member => member}
         end
@@ -524,7 +549,8 @@ module Clustering
         db_cluster = Cluster.new
         db_cluster.cutoff = cutoff
         db_cluster.is_parent_cluster = false
-        genes = Array.new
+        db_cluster.save
+        # genes = Array.new
         previous_strain_number = 0
         previous_gene_number = 0
         gene = nil
@@ -532,20 +558,23 @@ module Clustering
           strain_number, gene_number = member.name.split("-").map{|e| e.to_i}
           if strain_number == previous_strain_number && gene_number == previous_gene_number + 1 # should probably be joined
            gene.name = gene.name.to_s + "-#{gene_number}"
+           gene.aa_length += member.size
            gene.save
           else
             gene = Gene.new
             gene.name = gene_number
             gene.strain = Strain.find(strain_number)
+            gene.aa_length = member.size
             gene.save
-            genes << gene
+            ClusterMembership.create(:gene_id => gene.id, :cluster_id => db_cluster.id, :status => member.clustering_status)
+            # genes << gene
           end
           previous_strain_number = strain_number
           previous_gene_number = gene_number
         end
-        db_cluster.genes = genes
-        db_cluster.save
-        puts "Cluster #{db_cluster.id} created"
+        # db_cluster.genes = genes
+        # db_cluster.save
+        puts "Cluster #{db_cluster.id} created" if db_cluster.id % 100 == 0
       end
       puts "Committing transaction to database"
     # end
@@ -621,7 +650,7 @@ module Clustering
   def add_representatives_to_cluster(coding_sequences)
     # add representative gene to Clusters
     Cluster.find(:all).each do |cluster|
-      puts "adding repesentative to #{cluster.id}"
+      puts "adding repesentative to #{cluster.id}" if cluster.id % 100 == 0
       longest_gene = nil
       longest_gene_length = 0
       cluster.genes.each do |gene|
@@ -682,10 +711,17 @@ module Clustering
         end
         super_cluster = Array.new
       else
-        match_data = line.match(/\d+?\s+?(\d+)aa, >(\d+?)\.\.\./)
+        match_data = line.match(/\d+?\s+?(\d+)aa, >(\d+?)\.\.\.\s(.+)/)
         size = match_data.captures[0].to_i
         name = match_data.captures[1]
-        super_cluster << {:name => name, :size => size}
+        clustering_status = match_data.captures[2]
+        if clustering_status == "*"
+          clustering_status = "founder"
+        else
+          clustering_status =~ /at\s((\d|\.)+)%/
+          clustering_status = $1.to_f
+        end
+        super_cluster << {:name => name, :size => size, :clustering_status => clustering_status}
       end
     end
     clstr_file.close
@@ -707,7 +743,6 @@ module Clustering
         child_cluster_name = 0
         longest_gene_size = 0
         parent_cluster_represenative = nil
-        parent_cluster_genes = Array.new
         super_cluster.each do |cluster_member|
           child_cluster_name += 1
           child_cluster = Cluster.find(cluster_member[:name].to_i)
@@ -720,9 +755,11 @@ module Clustering
             longest_gene_size = child_cluster.representative.sequence.size
           end
 
-          parent_cluster_genes += child_cluster.genes
+          child_cluster.genes.each do |gene|
+            ClusterMembership.create(:gene_id => gene.id, :cluster_id => parent_cluster.id, :status => cluster_member[:clustering_status])
+          end
         end
-        parent_cluster.genes = parent_cluster_genes
+        parent_cluster.representative = parent_cluster_represenative
         parent_cluster.save
         puts "Created new parent cluster #{parent_cluster.id}"
 
@@ -780,7 +817,7 @@ module Clustering
   def make_blast_databases_from_clusters
     require 'tempfile'
     require 'bioutils/blast'
-    include Blast
+    extend Blast
     nucleotide_query_sequences = Tempfile.new('temp')
     protein_query_sequences = Tempfile.new('temp')
     
@@ -817,5 +854,21 @@ module Clustering
       cluster.save
     end
   end
+
+  def annotate_cluster_sequence(cluster)
+    puts "Annotating cluster #{cluster_id}"
+    reciprocal_hit_details = GenomeReciprocalHitAnnotator.annotate_sequence(
+                :biosequence  => representative_biosequence,
+                :reference_blast_program => options[:reference_blast_program],
+                :reference_percent_identity_cutoff => options[:reference_percent_identity_cutoff],
+                :reference_minimum_hit_length => options[:reference_minimum_hit_length],
+                :local_microbial_blast_DB => options[:microbial_genomes_blast_db],
+                :microbial_genomes_blast_program => options[:microbial_genomes_blast_program],
+                :microbial_genomes_percent_identity_cutoff => options[:microbial_genomes_percent_identity_cutoff],
+                :microbial_genomes_minimum_hit_length => options[:microbial_genomes_minimum_hit_length],
+                :ncbi_blast_program => options[:ncbi_blast_program],
+                :ncbi_percent_identity_cutoff => options[:ncbi_percent_identity_cutoff],
+                :ncbi_minimum_hit_length => options[:ncbi_minimum_hit_length])
+    reciprocal_hit_details.delete_if{|hd| hd[0] =~ /(translation|transl_table)/} unless reciprocal_hit_details.nil?
 
 end

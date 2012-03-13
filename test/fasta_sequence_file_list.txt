@@ -1,0 +1,2 @@
+test_data/seq1.fas	strain1
+test_data/seq2.fas	strain2

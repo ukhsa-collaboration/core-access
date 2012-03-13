@@ -20,10 +20,12 @@ end
 class ClusterMember
   attr_accessor :name
   attr_accessor :size
+  attr_accessor :clustering_status
 
-  def initialize(name,size)
+  def initialize(name,size,clustering_status)
     self.name = name
     self.size = size
+    self.clustering_status = clustering_status
   end
 end
 
