@@ -293,7 +293,9 @@ module Clustering
       collected_annotations = representative_sequences_slices.forkoff :processes => options[:parallel_processors], :strategy => :file do |*representative_sequences_slice|
         cluster_annotation_array = Array.new
         representative_sequences_slice.each do |cluster_id, representative_biosequence|
-          reciprocal_hit_details = annotate_cluster_sequence(cluster_id, representative_biosequence)
+          puts "Annotating cluster #{cluster_id}"
+          options[:representative_biosequence] = representative_biosequence
+          reciprocal_hit_details = annotate_cluster_sequence(options)
           cluster_annotation_array << [cluster_id, reciprocal_hit_details]
         end
         cluster_annotation_array
@@ -307,7 +309,9 @@ module Clustering
     else
       # serial annotation
       representative_sequences.each do |cluster_id, representative_biosequence|
-        reciprocal_hit_details = annotate_cluster_sequence(cluster_id, representative_biosequence)
+        puts "Annotating cluster #{cluster_id}"
+        options[:representative_biosequence] = representative_biosequence
+        reciprocal_hit_details = annotate_cluster_sequence(options)
         cluster_annotations[cluster_id] = reciprocal_hit_details # cluster_id as key , annotations as value
       end
 
@@ -855,14 +859,15 @@ module Clustering
     end
   end
 
-  def annotate_cluster_sequence(cluster)
-    puts "Annotating cluster #{cluster_id}"
+  def annotate_cluster_sequence(options)
     reciprocal_hit_details = GenomeReciprocalHitAnnotator.annotate_sequence(
-                :biosequence  => representative_biosequence,
+                :biosequence  => options[:representative_biosequence],
+                :query_sequence_database_name => "blast_databases/cluster_representatives",
+                :reference_sequences_database_name => "blast_databases/reference_genomes",
                 :reference_blast_program => options[:reference_blast_program],
                 :reference_percent_identity_cutoff => options[:reference_percent_identity_cutoff],
                 :reference_minimum_hit_length => options[:reference_minimum_hit_length],
-                :local_microbial_blast_DB => options[:microbial_genomes_blast_db],
+                :microbial_genomes_blast_db => options[:microbial_genomes_blast_db],
                 :microbial_genomes_blast_program => options[:microbial_genomes_blast_program],
                 :microbial_genomes_percent_identity_cutoff => options[:microbial_genomes_percent_identity_cutoff],
                 :microbial_genomes_minimum_hit_length => options[:microbial_genomes_minimum_hit_length],
@@ -870,5 +875,6 @@ module Clustering
                 :ncbi_percent_identity_cutoff => options[:ncbi_percent_identity_cutoff],
                 :ncbi_minimum_hit_length => options[:ncbi_minimum_hit_length])
     reciprocal_hit_details.delete_if{|hd| hd[0] =~ /(translation|transl_table)/} unless reciprocal_hit_details.nil?
+  end
 
 end

@@ -52,7 +52,7 @@ class GenomeReciprocalHitAnnotator
         :parallel_processors => nil,
         :annotate_by_remote_blast => true,
         :annotate_vs_local_microbial_genomes => true,
-        :local_microbial_blast_DB => "/Volumes/DataRAID/blast_databases/microbial_genomes",
+        :microbial_genomes_blast_db => "/Volumes/DataRAID/blast_databases/microbial_genomes",
         :reference_blast_program => "blastn",
         :reference_percent_identity_cutoff => 90,
         :reference_minimum_hit_length => 85,
@@ -290,7 +290,7 @@ class GenomeReciprocalHitAnnotator
         option :reference_blast_program, :required => true, :type => :string
         option :reference_percent_identity_cutoff, :required => true, :type => :integer
         option :reference_minimum_hit_length, :required => true, :type => :integer
-        option :local_microbial_blast_DB, :required => true, :type => :string
+        option :microbial_genomes_blast_db, :required => true, :type => :string
       end
 
       nucleotide_query_sequence = options[:biosequence]
@@ -348,7 +348,7 @@ class GenomeReciprocalHitAnnotator
             options[:debug_file].flush
           end
         end
-        reciprocal_hit_found, reciprocal_hit_details, reciprocal_hit_qualifiers = find_local_reciprocal_hit(:query_sequence => query_sequence,:query_sequence_blast_database => options[:query_sequence_database_name],:subject_blast_database => options[:local_microbial_blast_DB], :path_to_blast_executable => options[:path_to_blast_executable], :blast_program => options[:microbial_genomes_blast_program], :blast_options => "-e #{options[:e_cutoff]} -F F -b 10 -v 10",:percent_identity_cutoff => percent_identity_cutoff, :minimum_hit_length => options[:microbial_genomes_minimum_hit_length], :fastacmd_dir => options[:fastacmd_dir], :display_metrics => options[:display_metrics])
+        reciprocal_hit_found, reciprocal_hit_details, reciprocal_hit_qualifiers = find_local_reciprocal_hit(:query_sequence => query_sequence,:query_sequence_blast_database => options[:query_sequence_database_name],:subject_blast_database => options[:microbial_genomes_blast_db], :path_to_blast_executable => options[:path_to_blast_executable], :blast_program => options[:microbial_genomes_blast_program], :blast_options => "-e #{options[:e_cutoff]} -F F -b 10 -v 10",:percent_identity_cutoff => percent_identity_cutoff, :minimum_hit_length => options[:microbial_genomes_minimum_hit_length], :fastacmd_dir => options[:fastacmd_dir], :display_metrics => options[:display_metrics])
         if reciprocal_hit_found || (!reciprocal_hit_qualifiers.nil? && options[:accept_first_reciprocal_hit_containing_query])
           puts "Found hit to #{reciprocal_hit_details} by local blast against all microbial genomes"
           reciprocal_hit_qualifiers.unshift(["note", "Annotation derived by reciprocal #{options[:microbial_genomes_blast_program]} analysis against all microbial genome sequences (percent_identity_cutoff: #{percent_identity_cutoff}, minimum_hit_length: #{options[:microbial_genomes_minimum_hit_length]}). Annotation from #{extract_organism_qualifier(reciprocal_hit_qualifiers)}"])

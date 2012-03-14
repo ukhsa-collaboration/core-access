@@ -12,13 +12,14 @@ gem 'sqlite3', "~>1.3.5"
 gem "json"
 
 group :test do
-  gem "core-access"
+#  gem "core-access"
 end
 
 group :development do
   gem "shoulda", ">= 0"
   gem "rdoc", "~> 3.12"
-  gem "bundler", "~> 1.0.0"
+  gem "bundler"
   gem "jeweler", "~> 1.8.3"
   gem "rcov", ">= 0"
+  gem 'rake', '0.8.7'
 end

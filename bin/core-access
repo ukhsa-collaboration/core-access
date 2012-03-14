@@ -168,7 +168,7 @@ Choice.options do
   end
 
   option :ncbi_percent_identity_cutoff do
-    short '-rbc'
+    short '-nbc'
     long '--ncbi_percent_identity_cutoff'
     desc 'The percent identity cutoff to use for significant hits against the rNCBI nr database (Default 80)'
     cast Integer
@@ -176,7 +176,7 @@ Choice.options do
   end
 
   option :ncbi_minimum_hit_length do
-    short '-rbl'
+    short '-nbl'
     long '--ncbi_minimum_hit_length'
     desc 'The minimum percent length of the query which must match in the blast alignment for significant hits against the NCBI nr database (Default 80)'
     cast Integer

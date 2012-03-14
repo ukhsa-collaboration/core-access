@@ -87,7 +87,7 @@ class TestCoreAccess < Test::Unit::TestCase
     should "annotate clusters" do
       FileUtils.rm("/tmp/test.sqlite", :force => true)
       FileUtils.cp("#{@@test_dir}/test_data/test_with_superclusters.sqlite", "/tmp/test.sqlite")
-      annotate_clusters(:db_location => "/tmp/test.sqlite", :root_folder => "/tmp", :reference_genomes => ["#{@@test_dir}/test_data/ref_seq1.gbk","#{@@test_dir}/test_data/ref_seq2.gbk" ], :blast_dir => "/usr/local/blast/bin")
+      annotate_clusters(:db_location => "/tmp/test.sqlite", :root_folder => "/tmp", :reference_genomes => ["#{@@test_dir}/test_data/ref_seq1.gbk","#{@@test_dir}/test_data/ref_seq2.gbk" ], :microbial_genomes_blast_db => "/Volumes/DataRAID/blast_databases/microbial_genomes", :blast_dir => "/usr/local/blast/bin")
     end
 
 
