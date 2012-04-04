@@ -29,7 +29,7 @@ module ReciprocalHit
     default_options = {
       :path_to_blast_executable => "/usr/local/blast/bin/blastall",
       :blast_options => '-e 1e-20 -F F -b 10 -v 10',
-      :fastacmd_dir => "/usr/local/blast/bin/",
+      :fastacmd_dir => "/usr/local/blast/bin",
       :self_search => false,
       :blast_program => 'blastn',
       :percent_identity_cutoff => 90,

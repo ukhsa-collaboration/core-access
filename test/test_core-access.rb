@@ -87,7 +87,27 @@ class TestCoreAccess < Test::Unit::TestCase
     should "annotate clusters" do
       FileUtils.rm("/tmp/test.sqlite", :force => true)
       FileUtils.cp("#{@@test_dir}/test_data/test_with_superclusters.sqlite", "/tmp/test.sqlite")
-      annotate_clusters(:db_location => "/tmp/test.sqlite", :root_folder => "/tmp", :reference_genomes => ["#{@@test_dir}/test_data/ref_seq1.gbk","#{@@test_dir}/test_data/ref_seq2.gbk" ], :microbial_genomes_blast_db => "/Volumes/DataRAID/blast_databases/microbial_genomes", :blast_dir => "/usr/local/blast/bin")
+      annotate_clusters(
+        :db_location => "/tmp/test.sqlite",
+        :root_folder => "/tmp",
+        :blast_dir => "/usr/local/blast/bin",
+        :fastacmd_dir => "/usr/local/blast/bin",
+        :reference_genomes => ["#{@@test_dir}/test_data/ref_seq1.gbk","#{@@test_dir}/test_data/ref_seq2.gbk" ],
+        :reference_blast_program => "blastn",
+        :reference_percent_identity_cutoff => 90,
+        :reference_minimum_hit_length => 85,
+        :local_blast_db => "/Volumes/DataRAID/blast_databases/microbial_genomes",
+        :local_db_blast_program => "blastn",
+        :local_db_percent_identity_cutoff => 80,
+        :local_db_minimum_hit_length => 80,
+        :ncbi_blast_program => "blastp",
+        :ncbi_percent_identity_cutoff => 80,
+        :ncbi_minimum_hit_length => 80,
+        :annotate_vs_local_db => true,
+        :annotate_by_remote_blast => true,
+        :accept_reciprocal_hits_with_multiple_hits_incl_query  => true,
+        :accept_first_reciprocal_hit_containing_query => false,
+        :parallel_processors => 6)
     end
 
 

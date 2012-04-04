@@ -244,12 +244,12 @@ module Blast
   # @option options [String,Bio::Sequence] :sequence The query sequence either as a string or as a Bio::Sequence object
   # @option options [String] :blast_program The blast program (blastn is the default)
   # @option options [String] :blast_database The path and name of the local blast database
-  # @option options [String] :path_to_blast_executable The path to the blast executables
+  # @option options [String] :blast_dir The path to the blast bin directory
   # @option options [String] :blast_options Blast options e.g default is '-e 1e-10' (see http://www.ncbi.nlm.nih.gov/staff/tao/URLAPI/blastall/blastall_node23.html)
   def blast_sequence_locally(options)
     default_options = {
       :blast_program => "blastn",
-      :path_to_blast_executable => "/usr/local/blast/bin/blastall",
+      :blast_dir => "/usr/local/blast/bin",
       :blast_options => "-e 1e-10 -F F"
     }
     options.reverse_merge!(default_options)
@@ -257,13 +257,13 @@ module Blast
       option :blast_database, :required => true, :type => String
     end
     
-    raise ArgumentError, "blastall can not be found at #{options[:path_to_blast_executable]}" unless File.exists?(options[:path_to_blast_executable])
-    local_blast_factory = Bio::Blast.local(options[:blast_program], options[:blast_database],options[:blast_options],options[:path_to_blast_executable])
+    raise ArgumentError, "blastall can not be found at #{options[:blast_dir]}/blastall}" unless File.exists?("#{options[:blast_dir]}/blastall")
+    local_blast_factory = Bio::Blast.local(options[:blast_program], options[:blast_database],options[:blast_options],"#{options[:blast_dir]}/blastall")
     attempts = 0
     begin
       report = local_blast_factory.query(options[:sequence])
     rescue
-      puts "local blast caused an error (blast program: #{options[:blast_program]}, blast database: #{options[:blast_database]}, blast options: #{options[:blast_options]}, path to blast executable: #{options[:path_to_blast_executable]}"
+      puts "local blast caused an error (blast program: #{options[:blast_program]}, blast database: #{options[:blast_database]}, blast options: #{options[:blast_options]}, path to blast executable: #{options[:blast_dir]}/blastall"
       attempts += 1
       if attempts < 6 #5 retries
         retry
@@ -278,12 +278,12 @@ module Blast
   # @option options [String,Bio::Sequence] :sequence The query sequence either as a string or as a Bio::Sequence object
   # @option options [String] :blast_program The blast program (blastn is the default)
   # @option options [String] :blast_database The path and name of the local blast database
-  # @option options [String] :path_to_blast_executable The path to the blast executables
+  # @option options [String] :blast_dir The path to the blast bin directory
   # @option options [String] :blast_options Blast options e.g default is '-e 1e-10' (see http://www.ncbi.nlm.nih.gov/staff/tao/URLAPI/blastall/blastall_node23.html)
   def blast_sequence_locally_without_bioruby(options)
     default_options = {
       :blast_program => "blastn",
-      :path_to_blast_executable => "/usr/local/blast/bin/blastall",
+      :blast_dir => "/usr/local/blast/bin",
       :blast_options => "-e 1e-10 -F F"
     }
     options.reverse_merge!(default_options)
@@ -292,7 +292,7 @@ module Blast
     end
     
     
-    raise ArgumentError, "blastall can not be found at #{options[:path_to_blast_executable]}" unless File.exists?(options[:path_to_blast_executable])
+    raise ArgumentError, "blastall can not be found at #{options[:blast_dir]}/blastall}" unless File.exists?("#{options[:blast_dir]}/blastall")
     
     tmpfile_object = Tempfile.new('temp')
     tmpfile_object.puts options[:sequence].seq
@@ -302,7 +302,7 @@ module Blast
 
     begin
       report_text = ""
-      IO.popen("#{options[:path_to_blast_executable]} #{options[:blast_options]} -p #{options[:blast_program]} -d #{options[:blast_database]} -i #{tmpfile_object.path} -m 7 2>&1") do |cmd|
+      IO.popen("#{options[:blast_dir]}/blastall #{options[:blast_options]} -p #{options[:blast_program]} -d #{options[:blast_database]} -i #{tmpfile_object.path} -m 7 2>&1") do |cmd|
         cmd.each do |line|
           if line =~ /error for object/
             Process.kill 'TERM', cmd.pid
@@ -316,7 +316,7 @@ module Blast
         report = Bio::Blast::Report.new(report_text) unless report_text.nil?
       end
     rescue
-      puts "local blast caused an error #{$! }(blast command: #{options[:path_to_blast_executable]} #{options[:blast_options]} -p #{options[:blast_program]} -d #{options[:blast_database]} -i #{tmpfile_object.path} -m 7 2>&1, current directory: #{Dir.pwd})"
+      puts "local blast caused an error #{$! }(blast command: #{options[:blast_dir]}/blastall #{options[:blast_options]} -p #{options[:blast_program]} -d #{options[:blast_database]} -i #{tmpfile_object.path} -m 7 2>&1, current directory: #{Dir.pwd})"
       attempts += 1
       if attempts < 6 #5 retries
         retry
@@ -436,12 +436,12 @@ module Blast
     options.reverse_merge!(default_options)
 
     begin
-      `#{options[:fastacmd_dir]}fastacmd 2>/dev/null`
+      `#{options[:fastacmd_dir]}/fastacmd 2>/dev/null`
     rescue
-      puts "Can not find fastacmd at #{options[:fastacmd_dir]}fastacmd"
+      puts "Can not find fastacmd at #{options[:fastacmd_dir]}/fastacmd"
       raise
     end
-    `#{options[:fastacmd_dir]}fastacmd -d #{options[:blast_database]} -p #{options[:protein_option]} -s #{options[:search_string]}`
+    `#{options[:fastacmd_dir]}/fastacmd -d #{options[:blast_database]} -p #{options[:protein_option]} -s #{options[:search_string]}`
   end
   # A method top retrieve the accession a hit from an ncbi blast search
   # @param [Bio::Blast::Report::Hit] blast_hit A blast hit object from which the accession will be

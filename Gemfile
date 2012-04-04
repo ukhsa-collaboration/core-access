@@ -10,6 +10,7 @@ gem "choice", "~> 0.1.5"
 gem "activerecord", "~>3.2.2"
 gem 'sqlite3', "~>1.3.5"
 gem "json"
+gem 'forkoff', '~>1.1.1'
 
 group :test do
 #  gem "core-access"

@@ -240,12 +240,14 @@ module Clustering
       :reference_blast_program => "blastn",
       :reference_percent_identity_cutoff => 95,
       :reference_minimum_hit_length => 85,
-      :microbial_genomes_blast_program => "blastn",
-      :microbial_genomes_percent_identity_cutoff => 85,
-      :microbial_genomes_minimum_hit_length => 85,
+      :local_db_blast_program => "blastn",
+      :local_db_percent_identity_cutoff => 85,
+      :local_db_minimum_hit_length => 85,
       :ncbi_blast_program => "blastp",
       :ncbi_percent_identity_cutoff => 80,
-      :ncbi_minimum_hit_length => 80
+      :ncbi_minimum_hit_length => 80,
+      :annotate_vs_local_db => true,
+      :annotate_by_remote_blast => true
     }
     options.reverse_merge!(default_options)
 
@@ -269,7 +271,7 @@ module Clustering
     make_blast_databases_from_clusters
 
     representative_sequences = Array.new
-    Cluster.order("id DESC").all.each do |cluster|
+    Cluster.all.each do |cluster|
       next if cluster.representative.nil? # skip those clusters without a repesentative (super clusters)
       next unless cluster.representative.annotations.empty? # skip those clusters already annotated
       representative_cds = cluster.representative
@@ -301,7 +303,7 @@ module Clustering
         cluster_annotation_array
       end
       # cleanup collected annotation
-      collected_annotations.each do |collected_annotation|
+      collected_annotations.each do |collected_annotation|\
         collected_annotation.each do |cluster_annotation|
           cluster_annotations[cluster_annotation.first] = cluster_annotation.last # cluster_id as key , annotations as value
         end
@@ -357,13 +359,18 @@ module Clustering
 
     sql_statement = "SELECT * FROM (SELECT clusters.* FROM clusters INNER JOIN cluster_memberships ON clusters.id = cluster_memberships.cluster_id INNER JOIN genes ON genes.id = cluster_memberships.gene_id INNER JOIN strains ON strains.id = genes.strain_id WHERE (#{where_statement}) GROUP BY clusters.id, strain_id)"
 
-    sql_statement += " WHERE number_of_members = #{strain_names.size}" if options[:unique]
-    sql_statement += " GROUP BY id HAVING COUNT(*) = #{strain_names.size}"
+    sql_statement += " AS cl" if options[:unique_to_subset]
 
+    sql_statement += " WHERE number_of_strains = #{strain_names.size}" if options[:unique]
+    if options[:unique_to_subset]
+      sql_statement += " GROUP BY id HAVING COUNT(*) = cl.number_of_strains"
+    else
+      sql_statement += " GROUP BY id HAVING COUNT(*) = #{strain_names.size}"
+    end
     return Cluster.find_by_sql(sql_statement)
   end
 
-  def find_unique_clusters(options)
+  def find_unique_clusters(options) # this method finds genes that are shared by all strains supplied and found nowhere else
     options.merge!(:unique => true)
   end
 
@@ -837,12 +844,10 @@ module Clustering
       protein_query_sequences.puts biosequence.translate(1,11)
     end
     
-    nucleotide_query_sequences.close
-    protein_query_sequences.close
-    
     formatdb(:path_to_fasta_input_sequence => nucleotide_query_sequences.path, :database_name => "cluster_representatives", :final_db_location => "blast_databases")
     
     formatdb(:path_to_fasta_input_sequence => protein_query_sequences.path, :database_name => "cluster_representatives", :formatdb_options => "-o T -p T", :final_db_location => "blast_databases")
+
   end
 
   def update_cluster_number_of_members(clusters)
@@ -863,17 +868,23 @@ module Clustering
     reciprocal_hit_details = GenomeReciprocalHitAnnotator.annotate_sequence(
                 :biosequence  => options[:representative_biosequence],
                 :query_sequence_database_name => "blast_databases/cluster_representatives",
+                :accept_reciprocal_hits_with_multiple_hits_incl_query => options[:accept_reciprocal_hits_with_multiple_hits_incl_query],
+                :accept_first_reciprocal_hit_containing_query => options[:accept_first_reciprocal_hit_containing_query],
+                :blast_dir  => options[:blast_dir],
+                :fastacmd_dir => options[:fastacmd_dir],
                 :reference_sequences_database_name => "blast_databases/reference_genomes",
                 :reference_blast_program => options[:reference_blast_program],
                 :reference_percent_identity_cutoff => options[:reference_percent_identity_cutoff],
                 :reference_minimum_hit_length => options[:reference_minimum_hit_length],
-                :microbial_genomes_blast_db => options[:microbial_genomes_blast_db],
-                :microbial_genomes_blast_program => options[:microbial_genomes_blast_program],
-                :microbial_genomes_percent_identity_cutoff => options[:microbial_genomes_percent_identity_cutoff],
-                :microbial_genomes_minimum_hit_length => options[:microbial_genomes_minimum_hit_length],
+                :local_blast_db => options[:local_blast_db],
+                :local_db_blast_program => options[:local_db_blast_program],
+                :local_db_percent_identity_cutoff => options[:local_db_percent_identity_cutoff],
+                :local_db_minimum_hit_length => options[:local_db_minimum_hit_length],
                 :ncbi_blast_program => options[:ncbi_blast_program],
                 :ncbi_percent_identity_cutoff => options[:ncbi_percent_identity_cutoff],
-                :ncbi_minimum_hit_length => options[:ncbi_minimum_hit_length])
+                :ncbi_minimum_hit_length => options[:ncbi_minimum_hit_length],
+                :annotate_vs_local_db => options[:annotate_vs_local_db],
+                :annotate_by_remote_blast => options[:annotate_by_remote_blast])
     reciprocal_hit_details.delete_if{|hd| hd[0] =~ /(translation|transl_table)/} unless reciprocal_hit_details.nil?
   end
 
