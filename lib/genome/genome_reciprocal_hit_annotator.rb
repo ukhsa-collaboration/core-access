@@ -357,7 +357,6 @@ class GenomeReciprocalHitAnnotator
   ################################# PRIVATE METHODS ########################################
 
   def self.reference_reciprocal_blast(nucleotide_query_sequence, protein_query_sequence, options)
-    puts "REFERENCE"
     if options[:reference_blast_program] == "blastn"
       query_sequence = nucleotide_query_sequence
     else
@@ -389,7 +388,6 @@ class GenomeReciprocalHitAnnotator
   end
 
   def self.local_db_reciprocal_blast(nucleotide_query_sequence, protein_query_sequence, options)
-    puts "LOCAL"
     if options[:local_db_percent_identity_cutoff]
       percent_identity_cutoff = options[:local_db_percent_identity_cutoff]
     else
@@ -430,7 +428,6 @@ class GenomeReciprocalHitAnnotator
   end
 
   def self.remote_reciprocal_blast(nucleotide_query_sequence, protein_query_sequence, options)
-    puts "REMOTE"
     if options[:ncbi_percent_identity_cutoff]
       percent_identity_cutoff = options[:ncbi_percent_identity_cutoff]
     else
