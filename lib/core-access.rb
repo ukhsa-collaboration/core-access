@@ -1,6 +1,16 @@
 require 'rubygems'
-require 'core-access/clustering_methods'
-
+puts $:
+require 'core-access/cluster_create_methods'
+extend ClusterCreate
+require 'core-access/cluster_annotate_methods'
+extend ClusterAnnotate
+require 'core-access/cluster_search_methods'
+extend ClusterSearch
+require 'core-access/cluster_output_methods'
+extend ClusterOutput
+require 'core-access/cluster_database'
+extend ClusterDB
+require 'core-access/cluster_models'
 
 def determine_glimmer_directory(choices)
   if choices[:glimmer_dir]

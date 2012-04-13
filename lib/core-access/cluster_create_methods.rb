@@ -1,4 +1,4 @@
-module Clustering
+module ClusterCreate
   gem "bio", "~> 1.4.2"
   require 'bio'
   require 'utils/hash_reverse_merge'
@@ -207,17 +207,15 @@ module Clustering
       option :db_location, :required => true, :type => :string
     end
 
-    Dir.chdir("/tmp")
-
     connection = make_db_connection(options[:db_location]).connection
 
     tmpfile_object = write_cluster_representatives_to_file
 
     # make cdhit clusters
-    `#{options[:cdhit_dir]}/cd-hit -i #{tmpfile_object.path} -o cdhit_super_clusters-#{options[:cutoff]} -c #{options[:cutoff]/100.to_f} -n 5  -d 200`
+    `#{options[:cdhit_dir]}/cd-hit -i #{tmpfile_object.path} -o /tmp/cdhit_super_clusters-#{options[:cutoff]} -c #{options[:cutoff]/100.to_f} -n 5  -d 200`
 
     # read in cluster info from cdhit output
-    super_clusters = read_super_clstr_file("cdhit_super_clusters-#{options[:cutoff]}.clstr")
+    super_clusters = read_super_clstr_file("/tmp/cdhit_super_clusters-#{options[:cutoff]}.clstr")
     add_super_clusters_to_db(super_clusters, options[:cutoff])
 
     puts "updating cluster number_of_members and number_of_strains"
@@ -227,188 +225,6 @@ module Clustering
 
     tmpfile_object.close
   end
-
-  def annotate_clusters(options)
-    require 'core-access/cluster_database'
-    extend ClusterDB
-    require 'core-access/cluster_models'
-    require 'genome/genome_reciprocal_hit_annotator'
-    require 'bioutils/blast'
-    extend Blast
-
-    default_options = {
-      :reference_blast_program => "blastn",
-      :reference_percent_identity_cutoff => 95,
-      :reference_minimum_hit_length => 85,
-      :local_db_blast_program => "blastn",
-      :local_db_percent_identity_cutoff => 85,
-      :local_db_minimum_hit_length => 85,
-      :ncbi_blast_program => "blastp",
-      :ncbi_percent_identity_cutoff => 80,
-      :ncbi_minimum_hit_length => 80,
-      :annotate_vs_local_db => true,
-      :annotate_by_remote_blast => true
-    }
-    options.reverse_merge!(default_options)
-
-    options = MethodArgumentParser::Parser.check_options options  do
-      option :db_location, :required => true, :type => :string
-      option :root_folder, :required => true, :type => :string
-    end
-
-    Dir.chdir(options[:root_folder])
-
-    connection = make_db_connection(options[:db_location]).connection
-    unless options[:reference_database_path]
-      puts "Making reference sequence blast databases"
-      # make protein blast reference database
-       blast_database_from_rich_sequences(:input_sequences => options[:reference_genomes], :database_labels => :full_annotation, :database_name => "reference_genomes", :protein => true, :final_db_location => "blast_databases", :formatdb_dir => options[:blast_dir])
-      # make nucleotide blast reference database
-      blast_database_from_rich_sequences(:input_sequences => options[:reference_genomes], :database_labels => :full_annotation, :database_name => "reference_genomes", :protein => false, :final_db_location => "blast_databases", :formatdb_dir => options[:blast_dir])
-      options[:reference_database_path] = "blast_databases/reference_genomes"
-    end
-    puts "Making blast database from cluster reference sequences"
-    make_blast_databases_from_clusters
-
-    representative_sequences = Array.new
-    Cluster.all.each do |cluster|
-      next if cluster.representative.nil? # skip those clusters without a repesentative (super clusters)
-      next unless cluster.representative.annotations.empty? # skip those clusters already annotated
-      representative_cds = cluster.representative
-      representative_biosequence = Bio::Sequence.new(representative_cds.sequence)
-      representative_biosequence.entry_id = cluster.id.to_s
-      representative_biosequence.na
-      representative_sequences << [cluster.id, representative_biosequence]
-    end
-
-    cluster_annotations = Hash.new
-
-    # perform annotation
-    if options[:parallel_processors]
-      # parallel annotation
-      require 'forkoff'
-      representative_sequences_slices = Array.new
-      representative_sequences.each_slice(10) do |representative_sequences_slice|
-        representative_sequences_slices << representative_sequences_slice
-      end
-      # parallel loop starts here
-      collected_annotations = representative_sequences_slices.forkoff :processes => options[:parallel_processors], :strategy => :file do |*representative_sequences_slice|
-        cluster_annotation_array = Array.new
-        representative_sequences_slice.each do |cluster_id, representative_biosequence|
-          puts "Annotating cluster #{cluster_id}"
-          options[:representative_biosequence] = representative_biosequence
-          reciprocal_hit_details = annotate_cluster_sequence(options)
-          cluster_annotation_array << [cluster_id, reciprocal_hit_details]
-        end
-        cluster_annotation_array
-      end
-      # cleanup collected annotation
-      collected_annotations.each do |collected_annotation|\
-        collected_annotation.each do |cluster_annotation|
-          cluster_annotations[cluster_annotation.first] = cluster_annotation.last # cluster_id as key , annotations as value
-        end
-      end
-    else
-      # serial annotation
-      representative_sequences.each do |cluster_id, representative_biosequence|
-        puts "Annotating cluster #{cluster_id}"
-        options[:representative_biosequence] = representative_biosequence
-        reciprocal_hit_details = annotate_cluster_sequence(options)
-        cluster_annotations[cluster_id] = reciprocal_hit_details # cluster_id as key , annotations as value
-      end
-
-    end
-   
-
-
-    # apply annotations to database
-    cluster_annotations.each do |cluster_id, cluster_annotation|
-      next if cluster_annotation.nil?
-      cluster = Cluster.find(cluster_id)
-      representative_cds = cluster.representative
-      cluster_annotation.each do |annotation|
-        representative_cds.annotations << Annotation.new(:qualifier => annotation.first, :value => annotation.last )
-      end
-    end
-  end
-
-  def find_shared_clusters(options)
-    require 'core-access/cluster_database'
-    extend ClusterDB
-    require 'core-access/cluster_models'
-
-    default_options = {
-      :unique  => false,
-      :excluded_cluster_ids => false,
-      :include_parent_clusters => false
-    }
-    options.reverse_merge!(default_options)
-
-    options = MethodArgumentParser::Parser.check_options options  do
-      option :strain_names, :required => true, :type => :array
-    end
-
-    test_connection(options[:db_location])
-
-    *strain_names = options[:strain_names]
-    where_statement = strain_names.collect{|strain_name| "strains.name = '#{strain_name}' OR "}.join("").sub(/ OR $/, "")
-
-    where_statement += " AND clusters.id NOT IN (#{options[:excluded_cluster_ids].join(", ")})" if options[:excluded_cluster_ids]
-
-    where_statement += " AND clusters.is_parent_cluster = 'f'" unless options[:include_parent_clusters]
-
-    sql_statement = "SELECT * FROM (SELECT clusters.* FROM clusters INNER JOIN cluster_memberships ON clusters.id = cluster_memberships.cluster_id INNER JOIN genes ON genes.id = cluster_memberships.gene_id INNER JOIN strains ON strains.id = genes.strain_id WHERE (#{where_statement}) GROUP BY clusters.id, strain_id)"
-
-    sql_statement += " AS cl" if options[:unique_to_subset]
-
-    sql_statement += " WHERE number_of_strains = #{strain_names.size}" if options[:unique]
-    if options[:unique_to_subset]
-      sql_statement += " GROUP BY id HAVING COUNT(*) = cl.number_of_strains"
-    else
-      sql_statement += " GROUP BY id HAVING COUNT(*) = #{strain_names.size}"
-    end
-    return Cluster.find_by_sql(sql_statement)
-  end
-
-  def find_unique_clusters(options) # this method finds genes that are shared by all strains supplied and found nowhere else
-    options.merge!(:unique => true)
-  end
-
-  def find_core_clusters(options = {})
-    default_options = {
-      :db_location => nil
-    }
-    options.reverse_merge!(default_options)
-    
-    require 'core-access/cluster_database'
-    extend ClusterDB
-    require 'core-access/cluster_models'
-
-    test_connection(options[:db_location])
-
-    strain_names = Strain.all.map{|strain| strain.name}
-    find_shared_clusters(options.merge(:strain_names => strain_names))
-  end
-
-  def find_genes_with_annotation(options)
-    options = MethodArgumentParser::Parser.check_options options  do
-      option :annotation, :required => true, :type => :string
-    end
-
-    test_connection
-
-    Gene.joins(:annotations).where("annotations.value LIKE ?", "%#{options[:annotation]}%")
-  end
-
-  def find_clusters_having_genes(options)
-    options = MethodArgumentParser::Parser.check_options options  do
-      option :gene_ids, :required => true, :type => :array
-    end
-
-    Cluster.joins(:genes).where("genes.id IN (?)", options[:gene_ids]).select("DISTINCT clusters.*")
-  end
-
-
 
   ################################ sub methods #############################
 
@@ -862,30 +678,6 @@ module Clustering
       cluster.number_of_strains = Cluster.number_of_strains(cluster.id)
       cluster.save
     end
-  end
-
-  def annotate_cluster_sequence(options)
-    reciprocal_hit_details = GenomeReciprocalHitAnnotator.annotate_sequence(
-                :biosequence  => options[:representative_biosequence],
-                :query_sequence_database_name => "blast_databases/cluster_representatives",
-                :accept_reciprocal_hits_with_multiple_hits_incl_query => options[:accept_reciprocal_hits_with_multiple_hits_incl_query],
-                :accept_first_reciprocal_hit_containing_query => options[:accept_first_reciprocal_hit_containing_query],
-                :blast_dir  => options[:blast_dir],
-                :fastacmd_dir => options[:fastacmd_dir],
-                :reference_sequences_database_name => "blast_databases/reference_genomes",
-                :reference_blast_program => options[:reference_blast_program],
-                :reference_percent_identity_cutoff => options[:reference_percent_identity_cutoff],
-                :reference_minimum_hit_length => options[:reference_minimum_hit_length],
-                :local_blast_db => options[:local_blast_db],
-                :local_db_blast_program => options[:local_db_blast_program],
-                :local_db_percent_identity_cutoff => options[:local_db_percent_identity_cutoff],
-                :local_db_minimum_hit_length => options[:local_db_minimum_hit_length],
-                :ncbi_blast_program => options[:ncbi_blast_program],
-                :ncbi_percent_identity_cutoff => options[:ncbi_percent_identity_cutoff],
-                :ncbi_minimum_hit_length => options[:ncbi_minimum_hit_length],
-                :annotate_vs_local_db => options[:annotate_vs_local_db],
-                :annotate_by_remote_blast => options[:annotate_by_remote_blast])
-    reciprocal_hit_details.delete_if{|hd| hd[0] =~ /(translation|transl_table)/} unless reciprocal_hit_details.nil?
   end
 
 end

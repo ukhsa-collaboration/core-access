@@ -3,7 +3,10 @@ require 'helper'
 require 'stringio'
 require 'fileutils'
 require "#{@@test_dir}/../lib/core-access" # require lib/core-access so changes are picked up without rake install
-include Clustering
+include ClusterCreate
+include ClusterAnnotate
+include ClusterSearch
+include ClusterOutput
 
 class TestCoreAccess < Test::Unit::TestCase
   @@clustering_cutoffs = [99,98,95,90,85]
@@ -87,28 +90,51 @@ class TestCoreAccess < Test::Unit::TestCase
     should "annotate clusters" do
       FileUtils.rm("/tmp/test.sqlite", :force => true)
       FileUtils.cp("#{@@test_dir}/test_data/test_with_superclusters.sqlite", "/tmp/test.sqlite")
-      annotate_clusters(
-        :db_location => "/tmp/test.sqlite",
-        :root_folder => "/tmp",
-        :blast_dir => "/usr/local/blast/bin",
-        :fastacmd_dir => "/usr/local/blast/bin",
-        :reference_genomes => ["#{@@test_dir}/test_data/ref_seq1.gbk","#{@@test_dir}/test_data/ref_seq2.gbk" ],
-        :reference_blast_program => "blastn",
-        :reference_percent_identity_cutoff => 90,
-        :reference_minimum_hit_length => 85,
-        :local_blast_db => "/Volumes/DataRAID/blast_databases/microbial_genomes",
-        :local_db_blast_program => "blastn",
-        :local_db_percent_identity_cutoff => 80,
-        :local_db_minimum_hit_length => 80,
-        :ncbi_blast_program => "blastp",
-        :ncbi_percent_identity_cutoff => 80,
-        :ncbi_minimum_hit_length => 80,
-        :annotate_vs_local_db => true,
-        :annotate_by_remote_blast => true,
-        :accept_reciprocal_hits_with_multiple_hits_incl_query  => true,
-        :accept_first_reciprocal_hit_containing_query => false,
-        :parallel_processors => 6)
+      # annotate_clusters(
+      #   :db_location => "/tmp/test.sqlite",
+      #   :root_folder => "/tmp",
+      #   :blast_dir => "/usr/local/blast/bin",
+      #   :fastacmd_dir => "/usr/local/blast/bin",
+      #   :reference_genomes => ["#{@@test_dir}/test_data/ref_seq1.gbk","#{@@test_dir}/test_data/ref_seq2.gbk" ],
+      #   :reference_blast_program => "blastn",
+      #   :reference_percent_identity_cutoff => 90,
+      #   :reference_minimum_hit_length => 85,
+      #   :local_blast_db => "/Volumes/DataRAID2/blast_databases/microbial_genomes",
+      #   :local_db_blast_program => "blastn",
+      #   :local_db_percent_identity_cutoff => 80,
+      #   :local_db_minimum_hit_length => 80,
+      #   :ncbi_blast_program => "blastp",
+      #   :ncbi_percent_identity_cutoff => 80,
+      #   :ncbi_minimum_hit_length => 80,
+      #   :annotate_vs_local_db => true,
+      #   :annotate_by_remote_blast => false,
+      #   :accept_reciprocal_hits_with_multiple_hits_incl_query  => true,
+      #   :accept_first_reciprocal_hit_containing_query => false,
+      #   :parallel_processors => 6)
+      # annotate_clusters(
+      #   :db_location => "/Volumes/anthony_dataraid/Projects/psuedomonas_aeruginosa/results/clustering/clustering.sqlite",
+      #   :root_folder => "/tmp",
+      #   :blast_dir => "/usr/local/blast/bin",
+      #   :fastacmd_dir => "/usr/local/blast/bin",
+      #   :reference_genomes => ["/Volumes/anthony_dataraid/Projects/psuedomonas_aeruginosa/reference_sequences/M18.gbk", "/Volumes/anthony_dataraid/Projects/psuedomonas_aeruginosa/reference_sequences/NCGM2.S1.gbK", "/Volumes/anthony_dataraid/Projects/psuedomonas_aeruginosa/reference_sequences/PA7.gbk", "/Volumes/anthony_dataraid/Projects/psuedomonas_aeruginosa/reference_sequences/PAO1.gbk", "/Volumes/anthony_dataraid/Projects/psuedomonas_aeruginosa/reference_sequences/UCBPP-PA14.gbk" ],
+      #   :local_blast_db => "/Volumes/DataRAID2/blast_databases/microbial_genomes",
+      #   :annotate_vs_local_db => true,
+      #   :annotate_by_remote_blast => true,
+      #   :accept_reciprocal_hits_with_multiple_hits_incl_query  => true,
+      #   :accept_first_reciprocal_hit_containing_query => false,
+      #   :parallel_processors => 18)
+      
     end
+
+    should "output gene presence absence data" do
+      FileUtils.rm("/tmp/test.sqlite", :force => true)
+      FileUtils.cp("#{@@test_dir}/test_data/test_with_annotations.sqlite", "/tmp/test.sqlite")
+      output_gene_presence_absence(
+        :db_location =>  "/Volumes/anthony_dataraid/Projects/psuedomonas_aeruginosa/results/clustering/clustering.sqlite",
+        :output_filepath => "/tmp/gene_presence_absence.txt",
+        :without_core_genes => true)
+    end
+
 
 
   end

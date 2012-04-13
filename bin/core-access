@@ -54,7 +54,8 @@ Choice.options do
     short '-fl'
     long '--file_list'
     desc 'The path and filename of a file containing the sequences that contain the genes to be clustered'
-    desc 'These can be in fasta, genbank or embl format. If in fasta format Glimmer3 will be used to predict the genes within them'
+    desc 'These can be in fasta, genbank or embl format. If in fasta format Glimmer3 will be used to predict'
+    desc 'the genes within them'
     desc 'Each filepath should be listed on a new line in the file'
   end
 
@@ -118,7 +119,8 @@ Choice.options do
   option :reference_percent_identity_cutoff do
     short '-rbc'
     long '--reference_percent_identity_cutoff'
-    desc 'The percent identity cutoff to use for significant hits against the reference sequences supplied (Default 95)'
+    desc 'The percent identity cutoff to use for significant hits against the reference sequences supplied'
+    desc '(Default 95)'
     cast Integer
     default 95
   end
@@ -126,7 +128,8 @@ Choice.options do
   option :reference_minimum_hit_length do
     short '-rbl'
     long '--reference_minimum_hit_length'
-    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits against the reference sequences supplied'
+    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits'
+    desc 'against the reference sequences supplied'
     cast Integer
     default 85
   end
@@ -134,7 +137,8 @@ Choice.options do
   option :microbial_genomes_database do
     short '-mdb'
     long '--microbial_genomes_database'
-    desc 'The path to a microbial genomes database where the genes have been extracted and formatted in a blast database (see ReadMe for details -r option)'
+    desc 'The path to a microbial genomes database where the genes have been extracted and formatted in a blast'
+    desc 'database (see ReadMe for details -r option)'
   end
 
   option :microbial_genomes_blast_program do
@@ -155,7 +159,8 @@ Choice.options do
   option :microbial_genomes_minimum_hit_length do
     short '-mbl'
     long '--microbial_genomes_minimum_hit_length'
-    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits against a microbial genomes database (Deafult 85)'
+    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits'
+    desc 'against a microbial genomes database (Deafult 85)'
     cast Integer
     default 85
   end
@@ -178,12 +183,12 @@ Choice.options do
   option :ncbi_minimum_hit_length do
     short '-nbl'
     long '--ncbi_minimum_hit_length'
-    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits against the NCBI nr database (Default 80)'
+    desc 'The minimum percent length of the query which must match in the blast alignment for significant hits'
+    desc 'against the NCBI nr database (Default 80)'
     cast Integer
     default 80
   end
 
-  option 
   separator ''
   separator 'Arguments for search command:'
 

@@ -7,7 +7,7 @@ source "http://rubygems.org"
 # Include everything needed to run rake, tests, features, etc.
 gem "bio", "~> 1.4.2"
 gem "choice", "~> 0.1.5"
-gem "activerecord", "~>3.2.2"
+gem "activerecord", "3.2.2"
 gem 'sqlite3', "~>1.3.5"
 gem "json"
 gem 'forkoff', '~>1.1.1'
