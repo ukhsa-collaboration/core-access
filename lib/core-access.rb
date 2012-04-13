@@ -1,5 +1,4 @@
 require 'rubygems'
-puts $:
 require 'core-access/cluster_create_methods'
 extend ClusterCreate
 require 'core-access/cluster_annotate_methods'

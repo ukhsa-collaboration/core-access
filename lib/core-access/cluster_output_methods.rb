@@ -17,7 +17,7 @@ module ClusterOutput
     
     test_connection(options[:db_location])
 
-    output_file = File.open(options[:output_filepath], "w"
+    output_file = File.open(options[:output_filepath], "w")
 
     strains = Strain.all
     output_file.puts "\t#{strains.map{|strain| strain.name}.join("\t")}"
@@ -50,9 +50,6 @@ module ClusterOutput
     extend ClusterDB
     require 'core-access/cluster_models'
 
-    default_options = {
-      :without_core_genes  => false,
-    }
 
     options = MethodArgumentParser::Parser.check_options options  do
       option :db_location, :required => true, :type => :string
