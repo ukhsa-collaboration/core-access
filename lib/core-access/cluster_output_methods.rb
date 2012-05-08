@@ -58,6 +58,8 @@ module ClusterOutput
 
     output_file = File.open(options[:output_filepath], "w")
 
+    test_connection(options[:db_location])
+
     strains = Strain.all
     output_file.puts "\t#{strains.map{|strain| strain.name}.join("\t")}"
 
@@ -69,20 +71,24 @@ module ClusterOutput
     else
       clusters = get_clusters(options[:without_core_genes])
     end
+
     
     counter = 0
     clusters.each do |cluster|
       counter += 1
       puts "Completed output for #{counter} clusters" if counter % 100 == 0
       output_file.print "#{cluster.id}"
-      strain.each do |strain|
-        gene = Gene.joins(:strain, :clusters).where("strains.id = ? AND clusters.id = ?", strain.id, cluster.id).first
-        if gene.nil?
-          output_file.print "\t-"
-        else
-          output_file.print "\t#{gene.name}"
+      ActiveRecord::Base.transaction do
+        strains.each do |strain|
+          gene = Gene.joins(:strain, :clusters).where("strains.id = ? AND clusters.id = ?", strain.id, cluster.id).first
+          if gene.nil?
+            output_file.print "\t-"
+          else
+            output_file.print "\t#{gene.name}"
+          end
         end
       end
+      output_file.puts
     end
   end
 
