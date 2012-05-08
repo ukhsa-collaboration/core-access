@@ -37,8 +37,12 @@ module ClusterSearch
     return Cluster.find_by_sql(sql_statement)
   end
 
-  def find_unique_clusters(options) # this method finds genes that are shared by all strains supplied and found nowhere else
+  def find_unique_clusters(options) #finds gene that are exclusive to ALL strains supplied 
     options.merge!(:unique => true)
+  end
+  
+  def find_partial_shared_clusters(options)#find genes exclusive to SOME members of the set of strains supplied
+    options.merge!(:unique_to_subset => true)
   end
 
   def find_core_clusters(options = {})
