@@ -223,6 +223,12 @@ Choice.options do
     desc 'Each sequence filepath should be listed on a new line in the file'
     desc 'The strain name for each sequence file should be on the same line separated by tab'
   end
+  
+  option :merge_contigs_in_genbank_files do
+    short '-mgc'
+    long '--merge_genbank_contigs'
+    desc 'Whether to merge contigs into a single genbank entry when outputting sequences in genbank format'
+  end
 
 end
 
@@ -302,11 +308,18 @@ when "output"
     require 'bioutils/rich_sequence_utils'
     sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
     strain_names.each_with_index do |strain_name, index|
-      output_genbank_files_from_database(
+      options = {
         :db_location =>  Choice.choices[:database],
         :output_dir => Choice.choices[:output_dir],
         :strain_name => strain_name,
-        :sequence_file => sequence_files[index])
+        :sequence_file => sequence_files[index]
+        }
+      if Choice.choices[:merge_genbank_contigs]
+        options[:merge_contigs] = true
+      else
+        options[:merge_contigs] = false
+      end
+      output_genbank_files_from_database(options)
     end
   end
 end

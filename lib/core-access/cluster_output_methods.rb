@@ -103,48 +103,54 @@ module ClusterOutput
   end
 
   def output_genbank_files_from_database(options)
+    default_options = {
+      :merge_contigs  => true
+    }
+    options.reverse_merge!(default_options)
+    
     test_connection(options[:db_location])
 
     output_file = File.open("#{options[:output_dir]}/#{File.basename(options[:sequence_file], File.extname(options[:sequence_file]))}_annotated.gbk", "w")
-    combined_sequence = ""
-    features = Array.new
 
     sequence_objects = *rich_sequence_object_from_file(options[:sequence_file]) # * converts to array
-    offset = 0
-    if sequence_objects.size > 1
-      sequence_objects.each do |sequence_object|
-        location = "#{1 + offset}..#{sequence_object.seq.length + offset}"
-        features << Bio::Feature.new('contig', location)
-        offset += sequence_object.seq.length
-      end
-    end
-    sequence_objects.each do |sequence_object|
-      combined_sequence += sequence_object.seq
-    end
 
     strain = Strain.find_by_name(options[:strain_name])
-    genes = strain.genes.sort{|x,y| x.location.match(/\d+/).to_s.to_i <=> 
-      y.location.match(/\d+/).to_s.to_i}
-    genes.each do |gene|
-      cds = Bio::Feature.new('CDS', gene.location)
-      unless gene.annotations.empty?
-        gene.annotations.each do |annotation|
-          cds.append(Bio::Feature::Qualifier.new("#{annotation.qualifier}", "#{annotation.value}"))
+    if options[:merge_contigs]
+      features = Array.new
+      offset = 0
+      if sequence_objects.size > 1
+        sequence_objects.each do |sequence_object|
+          location = "#{1 + offset}..#{sequence_object.seq.length + offset}"
+          features << Bio::Feature.new('contig', location)
+          offset += sequence_object.seq.length
         end
       end
-      cds.append(Bio::Feature::Qualifier.new("note", "gene number: #{gene.name}"))
-      features << cds
+      combined_sequence = ""
+      sequence_objects.each do |sequence_object|
+        combined_sequence += sequence_object.seq
+      end
+      genes = strain.genes.sort{|x,y| x.location.match(/\d+/).to_s.to_i <=> y.location.match(/\d+/).to_s.to_i}
+      genes.each do |gene|
+        features << create_bio_feature(gene, options[:merge_contigs])
+      end
+      write_bio_sequence(:sequence => combined_sequence, :features => features, :entry_id => options[:strain_name], :definition => options[:strain_name], :output_file => output_file)
+    else
+      genes = strain.genes.sort{|x,y| x.name.to_i <=> y.name.to_i}
+      previous_relative_location = 0
+      sequence_index = 0
+      features = Array.new
+      genes.each do |gene|
+        puts "#{gene.relative_location.match(/\d+/).to_s.to_i} - #{previous_relative_location}"
+        if gene.relative_location.match(/\d+/).to_s.to_i < previous_relative_location
+          write_bio_sequence(:sequence => sequence_objects[sequence_index].seq, :features => features, :entry_id => sequence_objects[sequence_index].entry_id, :definition => sequence_objects[sequence_index].definition, :output_file => output_file)
+          sequence_index += 1
+          features = Array.new
+        end
+        features << create_bio_feature(gene, options[:merge_contigs])
+        previous_relative_location = gene.relative_location.match(/\d+/).to_s.to_i
+      end
+      write_bio_sequence(:sequence => sequence_objects[sequence_index].seq, :features => features, :entry_id => sequence_objects[sequence_index].entry_id, :definition => sequence_objects[sequence_index].definition, :output_file => output_file)
     end
-    bio_sequence = Bio::Sequence.new(combined_sequence)
-    bio_sequence.na
-    bio_sequence.entry_id = options[:strain_name]
-    bio_sequence.definition = options[:strain_name]
-    bio_sequence.molecule_type = "DNA"
-    bio_sequence.topology = "linear"
-    bio_sequence.division = "PRO"
-    bio_sequence.date_created = "18-NOV-2009"
-    bio_sequence.features = features
-    output_file.puts bio_sequence.output(:genbank)
     output_file.close
   end
 
@@ -163,5 +169,33 @@ module ClusterOutput
     where_array = [where_statement] + where_parameters
 
     return Cluster.where(where_array).all
+  end
+  
+  def create_bio_feature(gene, merge_contigs)
+    if merge_contigs
+      cds = Bio::Feature.new('CDS', gene.location)
+    else
+      cds = Bio::Feature.new('CDS', gene.relative_location)
+    end
+    unless gene.annotations.empty?
+      gene.annotations.each do |annotation|
+        cds.append(Bio::Feature::Qualifier.new("#{annotation.qualifier}", "#{annotation.value}"))
+      end
+    end
+    cds.append(Bio::Feature::Qualifier.new("note", "gene number: #{gene.name}"))
+    return cds
+  end
+  
+  def write_bio_sequence(options)
+    bio_sequence = Bio::Sequence.new(options[:sequence])
+    bio_sequence.na
+    bio_sequence.entry_id = options[:entry_id]
+    bio_sequence.definition = options[:definition]
+    bio_sequence.molecule_type = "DNA"
+    bio_sequence.topology = "linear"
+    bio_sequence.division = "PRO"
+    bio_sequence.date_created = "18-NOV-2009"
+    bio_sequence.features = options[:features]
+    options[:output_file].puts bio_sequence.output(:genbank)
   end
 end
