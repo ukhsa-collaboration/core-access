@@ -1,5 +1,14 @@
 module ClusterOutput
 
+  def cluster_summary(cluster, attributes = ["id", "cutoff", "is_parent_cluster", "number_of_members", "number_of_strains"])
+    cluster_info = Array.new
+    attributes.each do |attribute|
+      cluster_info << cluster.send(attribute)
+    end
+    cluster_info <<  Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).map{|strain| strain.name}
+  end
+
+
   def output_gene_presence_absence(options)
     require 'core-access/cluster_database'
     extend ClusterDB
@@ -41,8 +50,8 @@ module ClusterOutput
         end
       end
       output_file.puts
-
     end
+    output_file.close
   end
 
   def output_gene_order(options)
@@ -90,11 +99,58 @@ module ClusterOutput
       end
       output_file.puts
     end
+    output_file.close
+  end
+
+  def output_genbank_files_from_database(options)
+    test_connection(options[:db_location])
+
+    output_file = File.open("#{options[:output_dir]}/#{File.basename(options[:sequence_file], File.extname(options[:sequence_file]))}_annotated.gbk", "w")
+    combined_sequence = ""
+    features = Array.new
+
+    sequence_objects = *rich_sequence_object_from_file(options[:sequence_file]) # * converts to array
+    offset = 0
+    if sequence_objects.size > 1
+      sequence_objects.each do |sequence_object|
+        location = "#{1 + offset}..#{sequence_object.seq.length + offset}"
+        features << Bio::Feature.new('contig', location)
+        offset += sequence_object.seq.length
+      end
+    end
+    sequence_objects.each do |sequence_object|
+      combined_sequence += sequence_object.seq
+    end
+
+    strain = Strain.find_by_name(options[:strain_name])
+    genes = strain.genes.sort{|x,y| x.location.match(/\d+/).to_s.to_i <=> 
+      y.location.match(/\d+/).to_s.to_i}
+    genes.each do |gene|
+      cds = Bio::Feature.new('CDS', gene.location)
+      unless gene.annotations.empty?
+        gene.annotations.each do |annotation|
+          cds.append(Bio::Feature::Qualifier.new("#{annotation.qualifier}", "#{annotation.value}"))
+        end
+      end
+      cds.append(Bio::Feature::Qualifier.new("note", "gene number: #{gene.name}"))
+      features << cds
+    end
+    bio_sequence = Bio::Sequence.new(combined_sequence)
+    bio_sequence.na
+    bio_sequence.entry_id = options[:strain_name]
+    bio_sequence.definition = options[:strain_name]
+    bio_sequence.molecule_type = "DNA"
+    bio_sequence.topology = "linear"
+    bio_sequence.division = "PRO"
+    bio_sequence.date_created = "18-NOV-2009"
+    bio_sequence.features = features
+    output_file.puts bio_sequence.output(:genbank)
+    output_file.close
   end
 
   private
 
-  def get_clusters(without_core_genes = false)
+  def get_clusters(options, without_core_genes = false)
     where_statement = "clusters.is_parent_cluster = ?"
     where_parameters = [false]
 

@@ -1,0 +1,4 @@
+test: ""
+output_dir: "/tmp"
+sequence_file_list: fasta_sequence_file_list.txt
+clustering_cutoffs: "99-98-97-96-95-94-93-92-91-90-85" 

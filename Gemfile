@@ -12,10 +12,6 @@ gem 'sqlite3', "~>1.3.5"
 gem "json"
 gem 'forkoff', '~>1.1.1'
 
-group :test do
-#  gem "core-access"
-end
-
 group :development do
   gem "shoulda", ">= 0"
   gem "rdoc", "~> 3.12"

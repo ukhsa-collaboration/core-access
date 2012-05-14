@@ -349,7 +349,7 @@ module ClusterCreate
 
   def create_clusters_in_db(cluster_collection, cutoff, show_timings = false)
 
-    # ActiveRecord::Base.transaction do
+    # 
       # Remove transactions
       # ActiveRecord::ConnectionAdapters::SQLiteAdapter.class_eval do
       #   def begin_db_transaction
@@ -461,14 +461,17 @@ module ClusterCreate
       genbank_flatfile = Bio::FlatFile.open(Bio::GenBank,genbank_file)
       genome_name = strain_names[genome_counter - 1]
       coding_sequences[genome_name] = Array.new
+      offset = 0
       while genbank_entry = genbank_flatfile.next_entry
         puts "Adding genes from #{genbank_entry.definition}"
         genbank_sequence = genbank_entry.seq
         genbank_entry.each_cds do |cds|
           location_string =  cds.locations.to_s
+          offset_location_string = location_string.gsub(/(\d+)/){|match| match.to_i + offset}
           dna_cds_sequence  = genbank_sequence.splice(location_string)
-          coding_sequences[genome_name] << [location_string, dna_cds_sequence]
+          coding_sequences[genome_name] << {:location_string => location_string, :offset_location_string => offset_location_string, :dna_cds_sequence =>  dna_cds_sequence}
         end
+        offset += genbank_sequence.length
       end
     end
     return coding_sequences
@@ -477,39 +480,43 @@ module ClusterCreate
   def add_representatives_to_cluster(coding_sequences)
     # add representative gene to Clusters
     Cluster.find(:all).each do |cluster|
-      puts "adding repesentative to #{cluster.id}" if cluster.id % 100 == 0
-      longest_gene = nil
-      longest_gene_length = 0
-      cluster.genes.each do |gene|
-        gene_names = gene.name.split("-")
-        strain_name = gene.strain.name
-        locations = Array.new
+      ActiveRecord::Base.transaction do
+        puts "adding repesentative to #{cluster.id}" if cluster.id % 100 == 0
+        longest_gene = nil
+        longest_gene_length = 0
+        cluster.genes.each do |gene|
+          gene_names = gene.name.split("-")
+          strain_name = gene.strain.name
+          locations = Array.new
+          offset_locations = Array.new
+          gene_names.each do |gene_name|
+            offset_locations << coding_sequences[strain_name][gene_name.to_i - 1][:offset_location_string]
+            locations << coding_sequences[strain_name][gene_name.to_i - 1][:location_string]
+          end
+          gene.location = offset_locations.join(", ")
+          gene.relative_location = locations.join(", ") # relative location is the location within the original contig
+          gene.save
+          length = 0
+          locations.each do |location|
+            match =location.match(/(\d+)\D*?\.\.\D*?(\d+)/)
+            start_pos = match.captures[0].to_i
+            end_pos = match.captures[1].to_i
+            length += end_pos - start_pos
+          end
+          if length > longest_gene_length
+            longest_gene = gene
+          end
+        end
+        gene_names = longest_gene.name.split("-")
+        strain_name = longest_gene.strain.name
+        longest_gene.sequence = ""
         gene_names.each do |gene_name|
-          locations << coding_sequences[strain_name][gene_name.to_i - 1].first
+          longest_gene.sequence += coding_sequences[strain_name][gene_name.to_i - 1][:dna_cds_sequence] # += is to cater for genes that are joined
         end
-        # puts locations.join(", ")
-        gene.location = locations.join(", ")
-        gene.save
-        length = 0
-        locations.each do |location|
-          match =location.match(/(\d+)\D*?\.\.\D*?(\d+)/)
-          start_pos = match.captures[0].to_i
-          end_pos = match.captures[1].to_i
-          length += end_pos - start_pos
-        end
-        if length > longest_gene_length
-          longest_gene = gene
-        end
+        longest_gene.save
+        cluster.representative = longest_gene
+        cluster.save
       end
-      gene_names = longest_gene.name.split("-")
-      strain_name = longest_gene.strain.name
-      longest_gene.sequence = ""
-      gene_names.each do |gene_name|
-        longest_gene.sequence += coding_sequences[strain_name][gene_name.to_i - 1].last # += is to cater for genes that are joined
-      end
-      longest_gene.save
-      cluster.representative = longest_gene
-      cluster.save
     end
   end
 

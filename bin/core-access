@@ -1,6 +1,8 @@
 #! /usr/bin/env ruby
+if ENV['core-access_test-libpath']
+  $LOAD_PATH.unshift(ENV['core-access_test-libpath']) # read in lib path if testing
+end
 require 'core-access'
-include Clustering
 require 'utils/file_utils'
 
 gem "choice", "~> 0.1.5"
@@ -40,6 +42,12 @@ Choice.options do
   separator ''
   separator 'Arguments for all commands:'
 
+  option :config_file do
+    short '-cf'
+    long '--config_file'
+    desc 'A config file containing the arguments in YAML format'
+  end
+
   option :output_dir do
     short '-od'
     long '--output_dir'
@@ -52,11 +60,12 @@ Choice.options do
 
   option :sequence_file_list do
     short '-fl'
-    long '--file_list'
+    long '--sequence_file_list'
     desc 'The path and filename of a file containing the sequences that contain the genes to be clustered'
     desc 'These can be in fasta, genbank or embl format. If in fasta format Glimmer3 will be used to predict'
     desc 'the genes within them'
     desc 'Each filepath should be listed on a new line in the file'
+    desc 'The strain name for each sequence file should be on the same line separated by tab'
   end
 
   option :sequence_file_dir do
@@ -90,7 +99,7 @@ Choice.options do
     default '99-98-95-90-85'
   end
 
-  option :make_heirachical_super_clusters do
+  option :supercluster_cutoff do
     short '-sc'
     long '--supercluster_cutoff'
     desc 'The cutoff for making heirachical superclusters of clusters with cd-hit'
@@ -198,11 +207,37 @@ Choice.options do
     desc 'Find core genes in the cluster database'
   end
 
+  separator ''
+  separator 'Arguments for output command:'
+
+  option :presence_absence_data_file do
+    short '-paf'
+    long '--presence_absence_file'
+    desc 'Filename to record output of gene presence absence data from the cluster database'
+  end
+
+  option :genbank_output_strain_list_file do
+    short '-gsfl'
+    long '--genbank_strain_file_list'
+    desc 'The path and filename of a file containing the sequences to be written in genbank format'
+    desc 'Each sequence filepath should be listed on a new line in the file'
+    desc 'The strain name for each sequence file should be on the same line separated by tab'
+  end
+
 end
 
-abort(Choice.help) if core_access_command.nil? || !["create", "annotate", "search"].include?(core_access_command)
+abort(Choice.help) if core_access_command.nil? || !["create", "annotate", "search", "output"].include?(core_access_command)
+if Choice.choices[:config_file]
+  yaml_options = YAML.load(File.read(Choice.choices[:config_file]))
+  yaml_options.each do |yaml_key, yaml_value|
+    Choice.choices[yaml_key] = yaml_value
+  end
+end
 
-puts Choice.choices.inspect
+if Choice.choices.has_key?("test")
+  puts Choice.choices 
+  abort
+end
 
 # determine which action needs to be carried out based on the command used
 case core_access_command
@@ -218,10 +253,6 @@ when "create"
     abort("Your input sequence files contain fasta formats therefore you must either supply the directory that contains the glimmer files (binaries and scripts) or glimmer3 must be in the path")
   else
     abort("Can not find glimmer3 in #{glimmer_dir}/bin") unless File.executable?("#{glimmer_dir}/bin/glimmer3")
-  end
-  # optionally append a common sequence file directory
-  if Choice.choices[:sequence_file_dir]
-    sequence_files.map!{|sf| "#{Choice.choices[:sequence_file_dir]}/#{sf}"}
   end
 
   # make multi fasta file from genomes
@@ -248,12 +279,34 @@ when "create"
   add_representative_sequences_to_cluster(:root_folder => Choice.choices[:output_dir], :db_location => Choice.choices[:database], :sequence_files => sequence_files, :strain_names => strain_names)
 
   # add super clusters if cutoff supplied
-  if Choice.choices[:make_heirachical_super_clusters]
-      make_super_clusters(:cdhit_dir => cdhit_dir, :cutoff => Choice.choices[:make_heirachical_super_clusters], :db_location => Choice.choices[:database])
+  if Choice.choices[:supercluster_cutoff]
+      make_super_clusters(:cdhit_dir => cdhit_dir, :cutoff => Choice.choices[:supercluster_cutoff], :db_location => Choice.choices[:database])
   end
 when "search"
   if Choice.choices[:find_core_genes]
     core_clusters = find_core_clusters(:db_location => Choice.choices[:database])
-    puts core_clusters.size
+    puts ["id", "cutoff", "parent cluster?", "number of members", "number of strains", "strains"].join("\t")
+    core_clusters.each do |core_cluster|
+      puts cluster_summary(core_cluster).join("\t")
+    end
+  end
+when "output"
+  if Choice.choices[:presence_absence_data_file]
+    output_gene_presence_absence(
+          :db_location =>  Choice.choices[:database],
+          :output_filepath => "#{Choice.choices[:output_dir]}/#{Choice.choices[:presence_absence_data_file]}",
+          :without_core_genes => true)
+  end
+
+  if Choice.choices[:genbank_output_strain_list_file]
+    require 'bioutils/rich_sequence_utils'
+    sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
+    strain_names.each_with_index do |strain_name, index|
+      output_genbank_files_from_database(
+        :db_location =>  Choice.choices[:database],
+        :output_dir => Choice.choices[:output_dir],
+        :strain_name => strain_name,
+        :sequence_file => sequence_files[index])
+    end
   end
 end

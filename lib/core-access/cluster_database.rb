@@ -36,6 +36,7 @@ module ClusterDB
           t.column :name,      :string
           t.column :aa_length, :string
           t.column :location,  :string
+          t.column :relative_location, :string # relative location is the location within the original contig
           t.column :sequence, :string
           t.column :strain_id, :integer
         end

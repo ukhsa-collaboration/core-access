@@ -18,7 +18,7 @@ def guess_sequence_format(filename_or_filepath)
 end
 # A method to create a bioruby Bio::Sequence object from a file
 # @param [String] path_to_sequence The file path to the rich sequence file
-# @param [Symbol] sequence_format The format of the sequence file. Either :genbank or :format
+# @param [Symbol] sequence_format The format of the sequence file. Either :fasta, :genbank or :embl
 # @return [Bio::Sequence] The bioruby Bio::Sequence object
 def biosequence_from_file(path_to_sequence, sequence_format = nil)
   biosequence = rich_sequence_object_from_file(path_to_sequence, sequence_format).to_biosequence
@@ -32,6 +32,10 @@ def rich_sequence_object_from_file(path_to_sequence, sequence_format = nil)
   sequence_format = guess_sequence_format(path_to_sequence) if sequence_format.nil?
   rich_sequence_objects = Array.new
   case sequence_format
+  when :fasta
+    Bio::FlatFile.open(Bio::FastaFormat, path_to_sequence).each_entry do |entry|
+      rich_sequence_objects << entry unless entry.entry_id.nil? || entry.entry_id.empty?
+    end
   when :genbank
     Bio::FlatFile.open(Bio::GenBank, path_to_sequence).each_entry do |entry|
       rich_sequence_objects << entry unless entry.entry_id.nil? || entry.entry_id.empty?

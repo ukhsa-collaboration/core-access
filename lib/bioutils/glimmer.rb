@@ -114,7 +114,6 @@ module Glimmer
     options.reverse_merge!(default_options)
     raise ArgumentError, "the glimmer script can not be found at #{options[:glimmer_dir_path]}/scripts/" unless File.exists?("#{options[:glimmer_dir_path]}/scripts/g3-iterated.csh")
     command = "#{options[:glimmer_dir_path]}/scripts/g3-iterated.csh #{options[:input_sequence_path]} #{options[:glimmer_predict_filename]}"
-    puts command
     command += " 2>/dev/null" if options[:suppress_messages]
     `#{command}`
   end

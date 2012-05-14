@@ -22,9 +22,15 @@ def determine_glimmer_directory(choices)
 end
 
 def extract_file_and_strain_names_from_file_list(choices)
-  file_info = File.read(choices[:sequence_file_list]).split("\n")
+  if choices[:sequence_file_list]
+    file_info = File.read(choices[:sequence_file_list]).split("\n")
+  elsif choices[:genbank_output_strain_list_file]
+    file_info = File.read(choices[:genbank_output_strain_list_file]).split("\n")
+  end
   sequence_files = file_info.map{|line| line.split("\t").first}
+  # optionally append a common sequence file directory
   sequence_files.map!{|sf| "#{choices[:sequence_file_dir]}/#{sf}"} if choices[:sequence_file_dir]
+
   strain_names = file_info.map{|line| line.split("\t").last}
   return sequence_files, strain_names
 end
