@@ -140,7 +140,6 @@ module ClusterOutput
       sequence_index = 0
       features = Array.new
       genes.each do |gene|
-        puts "#{gene.relative_location.match(/\d+/).to_s.to_i} - #{previous_relative_location}"
         if gene.relative_location.match(/\d+/).to_s.to_i < previous_relative_location
           write_bio_sequence(:sequence => sequence_objects[sequence_index].seq, :features => features, :entry_id => sequence_objects[sequence_index].entry_id, :definition => sequence_objects[sequence_index].definition, :output_file => output_file)
           sequence_index += 1

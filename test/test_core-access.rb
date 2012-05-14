@@ -63,18 +63,18 @@ class TestCoreAccess < Test::Unit::TestCase
     #   assert_equal 2, Cluster.where(:id => Cluster.count).first.genes.size
     # end
 
-    should "create representatives in clusters" do
-      FileUtils.rm("/tmp/test.sqlite", :force => true)
-      FileUtils.cp("#{@@test_dir}/test_data/test_without_representatives.sqlite", "/tmp/test.sqlite")
-      # add represenatives to clusters
-      sequence_files, strain_names = extract_file_and_strain_names_from_file_list(:sequence_file_list => "#{@@test_dir}/genbank_sequence_file_list.txt")
-      sequence_files.map!{|sf| "#{@@test_dir}/#{sf}"}
-      # silence do
-        add_representative_sequences_to_cluster(:root_folder => "/tmp", :db_location => "/tmp/test.sqlite", :sequence_files => sequence_files, :strain_names => strain_names)
-      # end
-      assert_equal @@representative_of_cluster1_sequence, Cluster.where(:id => 1).first.representative.sequence
-      assert_equal @@representative_of_cluster2_sequence, Cluster.where(:id => Cluster.count).first.representative.sequence
-    end
+    # should "create representatives in clusters" do
+    #   FileUtils.rm("/tmp/test.sqlite", :force => true)
+    #   FileUtils.cp("#{@@test_dir}/test_data/test_without_representatives.sqlite", "/tmp/test.sqlite")
+    #   # add represenatives to clusters
+    #   sequence_files, strain_names = extract_file_and_strain_names_from_file_list(:sequence_file_list => "#{@@test_dir}/genbank_sequence_file_list.txt")
+    #   sequence_files.map!{|sf| "#{@@test_dir}/#{sf}"}
+    #   # silence do
+    #     add_representative_sequences_to_cluster(:root_folder => "/tmp", :db_location => "/tmp/test.sqlite", :sequence_files => sequence_files, :strain_names => strain_names)
+    #   # end
+    #   assert_equal @@representative_of_cluster1_sequence, Cluster.where(:id => 1).first.representative.sequence
+    #   assert_equal @@representative_of_cluster2_sequence, Cluster.where(:id => Cluster.count).first.representative.sequence
+    # end
 
     # should "make super clusters" do
     #   FileUtils.rm("/tmp/test.sqlite", :force => true)
@@ -205,12 +205,12 @@ class TestCoreAccess < Test::Unit::TestCase
     #   assert_equal "415: hypothetical protein\t1\t1", last_two_lines.last
     #   assert_equal 416, `wc -l /tmp/gene_presence_absence.txt`.split.first.to_i
     # end
-    # should "output genbank files from database" do
-    #   FileUtils.rm("/tmp/test.sqlite", :force => true)
-    #   FileUtils.cp("#{@@test_dir}/test_data/test_with_annotations.sqlite", "/tmp/test.sqlite")
-    #   output = `#{@@test_dir}/../bin/core-access output -gsfl #{@@test_dir}/fasta_sequence_file_list.txt -fd #{@@test_dir} -od /tmp -db /tmp/test.sqlite`
-    #   puts output
-    # end
+    should "output genbank files from database" do
+      FileUtils.rm("/tmp/test.sqlite", :force => true)
+      FileUtils.cp("#{@@test_dir}/test_data/test_with_annotations.sqlite", "/tmp/test.sqlite")
+      output = `#{@@test_dir}/../bin/core-access output -gsfl #{@@test_dir}/fasta_sequence_file_list.txt -fd #{@@test_dir} -od /tmp -db /tmp/test.sqlite`
+      puts output
+    end
 
   end
 end

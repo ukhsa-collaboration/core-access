@@ -314,7 +314,7 @@ when "output"
         :strain_name => strain_name,
         :sequence_file => sequence_files[index]
         }
-      if Choice.choices[:merge_genbank_contigs]
+      if Choice.choices[:merge_contigs_in_genbank_files]
         options[:merge_contigs] = true
       else
         options[:merge_contigs] = false
