@@ -8,14 +8,6 @@ require 'utils/file_utils'
 gem "choice", "~> 0.1.5"
 require 'choice'
 
-# gem "slop", "~> 3.0.4"
-# require 'slop'
-
-# parse options
-# opts = Slop.parse :help => true, :banner => "core-access [OPTIONS]", :optional_arguments => true do
-#   on :d, :database, 'Name of database, (required)'
-# end
-
 core_access_command = ARGV.shift
 
 Choice.options do
@@ -293,7 +285,12 @@ when "search"
     core_clusters = find_core_clusters(:db_location => Choice.choices[:database])
     puts ["id", "cutoff", "parent cluster?", "number of members", "number of strains", "strains"].join("\t")
     core_clusters.each do |core_cluster|
-      puts cluster_summary(core_cluster).join("\t")
+      cluster_summary = cluster_summary(core_cluster)
+      cluster_summary_array = Array.new
+      ["id", "cutoff", "is_parent_cluster", "number_of_members", "number_of_strains", "strain_names"].each do |key|
+        cluster_summary_array << cluster_summary[key]
+      end
+      puts cluster_summary_array.join("\t")
     end
   end
 when "output"
@@ -302,9 +299,7 @@ when "output"
           :db_location =>  Choice.choices[:database],
           :output_filepath => "#{Choice.choices[:output_dir]}/#{Choice.choices[:presence_absence_data_file]}",
           :without_core_genes => true)
-  end
-
-  if Choice.choices[:genbank_output_strain_list_file]
+  elsif Choice.choices[:genbank_output_strain_list_file]
     require 'bioutils/rich_sequence_utils'
     sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
     strain_names.each_with_index do |strain_name, index|

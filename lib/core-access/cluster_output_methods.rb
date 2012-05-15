@@ -1,11 +1,15 @@
 module ClusterOutput
-
+  # a method to return summary information about a cluster
+  # @param [Cluster] cluster The cluster object (ActiveRecord) to return summary information for
+  # @param [Array] attributes An array of strings listing the cluster attributes that should be returned in the summary
+  # default is ["id", "cutoff", "is_parent_cluster", "number_of_members", "number_of_strains"])
+  # @return [Hash] A hash of the cluster summary information. Descriptor name is the key and the info recorded in the value
   def cluster_summary(cluster, attributes = ["id", "cutoff", "is_parent_cluster", "number_of_members", "number_of_strains"])
-    cluster_info = Array.new
+    cluster_info = Hash.new
     attributes.each do |attribute|
-      cluster_info << cluster.send(attribute)
+      cluster_info[attribute] = cluster.send(attribute)
     end
-    cluster_info <<  Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).map{|strain| strain.name}
+    cluster_info["strain_names"] =  Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).map{|strain| strain.name}
   end
 
 

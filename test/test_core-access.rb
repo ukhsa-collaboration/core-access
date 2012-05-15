@@ -188,13 +188,13 @@ class TestCoreAccess < Test::Unit::TestCase
     #   assert_equal 2, Cluster.where(:id => Cluster.count).first.number_of_members
     #   assert_equal 1, Cluster.where(:id => Cluster.count).first.number_of_strains
     # end
-    # should "find correct number of core genes" do
-    #   FileUtils.rm("/tmp/test.sqlite", :force => true)
-    #   FileUtils.cp("#{@@test_dir}/test_data/test_with_superclusters.sqlite", "/tmp/test.sqlite")
-    #   output = `#{@@test_dir}/../bin/core-access search -cg -db /tmp/test.sqlite`
-    #   assert_equal 327, output.split("\n").size # number of core genes = 326 + 1 header line
-    #   assert_equal "415\t85\tfalse\t2\t2\tstrain1\tstrain2", output.split("\n").last
-    # end
+    should "find correct number of core genes" do
+      FileUtils.rm("/tmp/test.sqlite", :force => true)
+      FileUtils.cp("#{@@test_dir}/test_data/test_with_superclusters.sqlite", "/tmp/test.sqlite")
+      output = `#{@@test_dir}/../bin/core-access search -cg -db /tmp/test.sqlite`
+      assert_equal 327, output.split("\n").size # number of core genes = 326 + 1 header line
+      assert_equal "415\t85\tfalse\t2\t2\tstrain1\tstrain2", output.split("\n").last
+    end
 
     # should "output presence and absence data" do
     #   FileUtils.rm("/tmp/test.sqlite", :force => true)
@@ -205,12 +205,12 @@ class TestCoreAccess < Test::Unit::TestCase
     #   assert_equal "415: hypothetical protein\t1\t1", last_two_lines.last
     #   assert_equal 416, `wc -l /tmp/gene_presence_absence.txt`.split.first.to_i
     # end
-    should "output genbank files from database" do
-      FileUtils.rm("/tmp/test.sqlite", :force => true)
-      FileUtils.cp("#{@@test_dir}/test_data/test_with_annotations.sqlite", "/tmp/test.sqlite")
-      output = `#{@@test_dir}/../bin/core-access output -gsfl #{@@test_dir}/fasta_sequence_file_list.txt -fd #{@@test_dir} -od /tmp -db /tmp/test.sqlite`
-      puts output
-    end
+    # should "output genbank files from database" do
+    #   FileUtils.rm("/tmp/test.sqlite", :force => true)
+    #   FileUtils.cp("#{@@test_dir}/test_data/test_with_annotations.sqlite", "/tmp/test.sqlite")
+    #   output = `#{@@test_dir}/../bin/core-access output -gsfl #{@@test_dir}/fasta_sequence_file_list.txt -fd #{@@test_dir} -od /tmp -db /tmp/test.sqlite`
+    #   puts output
+    # end
 
   end
 end
