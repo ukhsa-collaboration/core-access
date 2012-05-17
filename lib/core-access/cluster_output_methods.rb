@@ -12,7 +12,7 @@ module ClusterOutput
     cluster_info["strain_names"] =  Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).map{|strain| strain.name}
   end
 
-
+  # a method to output presence and absence data
   def output_gene_presence_absence(options)
     require 'core-access/cluster_database'
     extend ClusterDB

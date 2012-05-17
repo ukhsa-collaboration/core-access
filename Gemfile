@@ -11,6 +11,7 @@ gem "activerecord", "3.2.2"
 gem 'sqlite3', "~>1.3.5"
 gem "json"
 gem 'forkoff', '~>1.1.1'
+gem 'facter'
 
 group :development do
   gem "shoulda", ">= 0"

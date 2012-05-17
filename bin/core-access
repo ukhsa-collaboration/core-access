@@ -7,6 +7,9 @@ require 'utils/file_utils'
 
 gem "choice", "~> 0.1.5"
 require 'choice'
+gem 'facter'
+require 'facter'
+Facter.loadfacts
 
 core_access_command = ARGV.shift
 
@@ -110,6 +113,13 @@ Choice.options do
   separator ''
   separator 'Blast arguments for annotate command:'
 
+  option :reference_blast_sequences do
+    short '-rbs'
+    long '--reference_blast_sequences'
+    desc 'Paths to the reference sequences to be used for first pass blast searching'
+    desc 'This should be a comma separated list with no spaces e.g /path/to/ref_seq1.gbk,/path/to/ref_seq2.gbk'
+  end
+
   option :reference_blast_program do
     short '-rbp'
     long '--reference_blast_program'
@@ -135,35 +145,40 @@ Choice.options do
     default 85
   end
 
-  option :microbial_genomes_database do
-    short '-mdb'
-    long '--microbial_genomes_database'
-    desc 'The path to a microbial genomes database where the genes have been extracted and formatted in a blast'
+  option :local_blast_database do
+    short '-lbd'
+    long '--local_blast_database'
+    desc 'The path to a local genomes database where the genes have been extracted and formatted in a blast'
     desc 'database (see ReadMe for details -r option)'
   end
 
-  option :microbial_genomes_blast_program do
-    short '-mbp'
-    long '--microbial_genomes_blast_program'
-    desc 'The blast program to use when searching a microbial genomes database(Default blastn)'
+  option :local_database_blast_program do
+    short '-lbp'
+    long '--local_database_blast_program'
+    desc 'The blast program to use when searching a local genomes database(Default blastn)'
     default 'blastn'
   end
 
-  option :microbial_genomes_percent_identity_cutoff do
-    short '-mbc'
-    long '--microbial_genomes_percent_identity_cutoff'
-    desc 'The percent identity cutoff to use for significant hits against ta microbial genomes database(Default 85)'
+  option :local_database_percent_identity_cutoff do
+    short '-lbc'
+    long '--local_database_percent_identity_cutoff'
+    desc 'The percent identity cutoff to use for significant hits against the local genomes database(Default 85)'
     cast Integer
     default 85
   end
 
-  option :microbial_genomes_minimum_hit_length do
-    short '-mbl'
-    long '--microbial_genomes_minimum_hit_length'
+  option :local_database_minimum_hit_length do
+    short '-lbl'
+    long '--local_database_minimum_hit_length'
     desc 'The minimum percent length of the query which must match in the blast alignment for significant hits'
-    desc 'against a microbial genomes database (Deafult 85)'
+    desc 'against a local genomes database (Deafult 85)'
     cast Integer
     default 85
+  end
+
+  option :annotate_versus_nr do
+    short '-anr'
+    desc 'Whether to annotate using remote blast searches against the non-redundant database at NCBI'
   end
 
   option :ncbi_blast_program do
@@ -188,6 +203,13 @@ Choice.options do
     desc 'against the NCBI nr database (Default 80)'
     cast Integer
     default 80
+  end
+
+  option :number_of_processors do
+    short '-np'
+    long '--number_of_processors'
+    desc 'The number of processors to use when performining annotation. Default - number of cores - 2'
+    default Facter.processorcount
   end
 
   separator ''
@@ -279,6 +301,32 @@ when "create"
   # add super clusters if cutoff supplied
   if Choice.choices[:supercluster_cutoff]
       make_super_clusters(:cdhit_dir => cdhit_dir, :cutoff => Choice.choices[:supercluster_cutoff], :db_location => Choice.choices[:database])
+  end
+when "annotate"
+    abort("You must supply at least one reference sequence with which to annotate") unless Choice.choices[:reference_blast_sequences]
+    reference_sequences => Choice.choices[:reference_blast_sequences].split(",")
+    if Choice.choices[:annotate_versus_nr] 
+    annotate_clusters(
+      :db_location => Choice.choices[:database],
+      :root_folder => Choice.choices[:output_dir],
+      :blast_dir => Choice.choices[:blast_dir],
+      :fastacmd_dir => Choice.choices[:blast_dir],
+      :reference_genomes => reference_sequences,
+      :reference_blast_program => Choice.choices[:reference_blast_program],
+      :reference_percent_identity_cutoff => Choice.choices[:reference_percent_identity_cutoff],
+      :reference_minimum_hit_length => Choice.choices[:reference_minimum_hit_length],
+      :local_blast_db => Choice.choices[:local_blast_database],
+      :local_db_blast_program => Choice.choices[:local_database_blast_program],
+      :local_db_percent_identity_cutoff => Choice.choices[:local_database_percent_identity_cutoff],
+      :local_db_minimum_hit_length => Choice.choices[:local_database_minimum_hit_length],
+      :ncbi_blast_program => Choice.choices[:ncbi_blast_program],
+      :ncbi_percent_identity_cutoff => Choice.choices[:ncbi_percent_identity_cutoff],
+      :ncbi_minimum_hit_length => Choice.choices[:ncbi_minimum_hit_length],
+      :annotate_vs_local_db => Choice.choices.has_key?(:annotate_versus_nr),
+      :annotate_by_remote_blast => Choice.choices.has_key?(:local_blast_database),
+      :accept_reciprocal_hits_with_multiple_hits_incl_query  => true,
+      :accept_first_reciprocal_hit_containing_query => false,
+      :parallel_processors => Choice.choices[:number_of_processors])
   end
 when "search"
   if Choice.choices[:find_core_genes]
