@@ -317,6 +317,7 @@ module Blast
       end
     rescue
       puts "local blast caused an error #{$! }(blast command: #{options[:blast_dir]}/blastall #{options[:blast_options]} -p #{options[:blast_program]} -d #{options[:blast_database]} -i #{tmpfile_object.path} -m 7 2>&1, current directory: #{Dir.pwd})"
+      puts "sequence: #{File.read(tmpfile_object.path)}"
       attempts += 1
       if attempts < 6 #5 retries
         retry

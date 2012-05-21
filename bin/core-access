@@ -15,27 +15,15 @@ core_access_command = ARGV.shift
 
 Choice.options do
   banner 'core-access COMMAND [OPTIONS]'
-  header 'COMMAND can be create, annotate or search'
+  header 'COMMAND can be create, annotate search output or readme'
   header ''
-  header 'Required arguments:'
+  header 'Arguments common to all commands:'
 
-
-  option :database, :required  => true do
+  option :database do
     short '-db'
     long '--database DATABASE'
-    desc 'Path to database file (required)'
+    desc 'Path to database file'
   end
-
-  separator ''
-  separator 'Optional arguments:'
-  option :help do
-    short '-h'
-    long '--help'
-    desc 'Show this message'
-  end
-
-  separator ''
-  separator 'Arguments for all commands:'
 
   option :config_file do
     short '-cf'
@@ -48,6 +36,20 @@ Choice.options do
     long '--output_dir'
     desc 'The path to a directory where the results will be written (default is current directory)'
     default '.'
+  end
+
+  option :verbose do
+    short '-v'
+    long '--verbose'
+    desc 'Print a more verbose output'
+  end
+
+  separator ''
+  separator 'Optional arguments:'
+  option :help do
+    short '-h'
+    long '--help'
+    desc 'Show this message'
   end
 
   separator ''
@@ -72,19 +74,20 @@ Choice.options do
   option :glimmer_dir do
     short '-gd'
     long '--glimmer_dir'
-    desc 'The directory that contains the Glimmer3 files (binaries and scripts)'
+    desc 'The path to the directory that contains the Glimmer3 files (binaries and scripts)'
   end
 
   option :training_sequence_path do
     short '-ts'
     long '--training_sequence_path'
-    desc 'The path and filename of a genbank sequence whose coding sequences will be used to training the Glimmer3 gene prediction software'
+    desc 'The path and filename of a genbank sequence whose coding sequences will be used to train the'
+    desc 'Glimmer3 gene prediction software'
   end
 
   option :cdhit_dir do
     short '-cd'
     long '--cdhit_dir'
-    desc 'The directory that contains the cd-hit executable'
+    desc 'The path to the directory that contains the cd-hit executable'
   end
 
   option :clustering_cutoffs do
@@ -116,7 +119,7 @@ Choice.options do
   option :reference_blast_sequences do
     short '-rbs'
     long '--reference_blast_sequences'
-    desc 'Paths to the reference sequences to be used for first pass blast searching'
+    desc 'Paths to the reference sequences to be used for first pass blast searching (GenBank or EMBL format)'
     desc 'This should be a comma separated list with no spaces e.g /path/to/ref_seq1.gbk,/path/to/ref_seq2.gbk'
   end
 
@@ -140,7 +143,7 @@ Choice.options do
     short '-rbl'
     long '--reference_minimum_hit_length'
     desc 'The minimum percent length of the query which must match in the blast alignment for significant hits'
-    desc 'against the reference sequences supplied'
+    desc 'against the reference sequences supplied (Default 85)'
     cast Integer
     default 85
   end
@@ -149,7 +152,7 @@ Choice.options do
     short '-lbd'
     long '--local_blast_database'
     desc 'The path to a local genomes database where the genes have been extracted and formatted in a blast'
-    desc 'database (see ReadMe for details -r option)'
+    desc 'database (see ReadMe for details: core-access readme)'
   end
 
   option :local_database_blast_program do
@@ -178,6 +181,7 @@ Choice.options do
 
   option :annotate_versus_nr do
     short '-anr'
+    long '--annotate_versus_nr'
     desc 'Whether to annotate using remote blast searches against the non-redundant database at NCBI'
   end
 
@@ -215,7 +219,7 @@ Choice.options do
   separator ''
   separator 'Arguments for search command:'
 
-  option :find_core_genes do
+  option :core_genes do
     short '-cg'
     long '--core_genes'
     desc 'Find core genes in the cluster database'
@@ -224,21 +228,22 @@ Choice.options do
   separator ''
   separator 'Arguments for output command:'
 
-  option :presence_absence_data_file do
+  option :presence_absence_file do
     short '-paf'
     long '--presence_absence_file'
     desc 'Filename to record output of gene presence absence data from the cluster database'
   end
 
-  option :genbank_output_strain_list_file do
+  option :genbank_strain_file_list do
     short '-gsfl'
     long '--genbank_strain_file_list'
-    desc 'The path and filename of a file containing the sequences to be written in genbank format'
-    desc 'Each sequence filepath should be listed on a new line in the file'
-    desc 'The strain name for each sequence file should be on the same line separated by tab'
+    desc 'The path and filename of a file that contains a line-listing of the sequences to be written in genbank format'
+    desc 'Each sequence filepath (probably a fasta file) should be listed on a new line in the file'
+    desc 'The strain name for each sequence file should be on the same line separated by a tab'
+    desc 'This will often be idetntical to the input file used to create the core-access database'
   end
   
-  option :merge_contigs_in_genbank_files do
+  option :merge_genbank_contigs do
     short '-mgc'
     long '--merge_genbank_contigs'
     desc 'Whether to merge contigs into a single genbank entry when outputting sequences in genbank format'
@@ -246,7 +251,9 @@ Choice.options do
 
 end
 
-abort(Choice.help) if core_access_command.nil? || !["create", "annotate", "search", "output"].include?(core_access_command)
+# puts Choice.class_variable_get("@@options").map{|option_name, choice_option| choice_option.desc.inspect}
+
+abort(Choice.help) if core_access_command.nil? || !["create", "annotate", "search", "output", "readme"].include?(core_access_command)
 if Choice.choices[:config_file]
   yaml_options = YAML.load(File.read(Choice.choices[:config_file]))
   yaml_options.each do |yaml_key, yaml_value|
@@ -270,33 +277,33 @@ when "create"
   sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
 
   if glimmer_dir.nil? && !sequence_files.select{|f| f =~ /(\.fa|\.fas|\.fsa|\.fasta)$/}.empty?
-    abort("Your input sequence files contain fasta formats therefore you must either supply the directory that contains the glimmer files (binaries and scripts) or glimmer3 must be in the path")
+    abort("Your input sequence files contain fasta formats therefore you must either supply the directory that contains the glimmer files (binaries and scripts) e.g /usr/local/glimmer. Alternatively glimmer3 must be in your PATH")
   else
     abort("Can not find glimmer3 in #{glimmer_dir}/bin") unless File.executable?("#{glimmer_dir}/bin/glimmer3")
   end
 
-  # make multi fasta file from genomes
-  create_cds_multi_fasta_file(:training_sequence_path => Choice.choices[:training_sequence_path], :root_folder  => Choice.choices[:output_dir], :cds_multi_fasta_file => "#{Choice.choices[:output_dir]}/cds_proteins.fas", :sequence_files => sequence_files)
-
   # use cdhit to record cluster info
   # determine cdhit directory
-  if Choice.choices[:cdhit_dir]
-    cdhit_dir = Choice.choices[:cdhit_dir]
-  else
-    cdhit_dir = which("cdhit")
-    cdhit_dir = File.dirname(cdhit_dir) unless cdhit_dir.nil? 
-  end
+  cdhit_dir = determine_cdhit_directory(Choice.choices)
   abort("Can not find cd-hit") if cdhit_dir.nil? 
   abort("Can not find cd-hit in #{cdhit_dir}") unless File.executable?("#{cdhit_dir}/cd-hit")
 
+  # make multi fasta file from genomes
+  puts "Creating fasta file from predicted proteins of all sequences"
+  create_cds_multi_fasta_file(:training_sequence_path => Choice.choices[:training_sequence_path], :root_folder  => Choice.choices[:output_dir], :cds_multi_fasta_file => "#{Choice.choices[:output_dir]}/cds_proteins.fas", :sequence_files => sequence_files, :verbose => Choice.choices.has_key?("verbose"))
+  puts
+
+  puts "Performing cdhit clustering"
   clustering_cutoffs = Choice.choices[:clustering_cutoffs].split("-").map{|n| n.to_i}
   make_heirachical_clusters(:root_folder  => Choice.choices[:output_dir],:cds_multi_fasta_file => "#{Choice.choices[:output_dir]}/cds_proteins.fas", :clustering_cutoffs => clustering_cutoffs, :cdhit_dir => cdhit_dir)
 
+  puts "Making database from cdhit clustering"
   # make database from cd-hit output
-  make_db_clusters(:root_folder => Choice.choices[:output_dir], :db_location => Choice.choices[:database], :strain_names => strain_names, :clustering_cutoffs => clustering_cutoffs)
+  make_db_clusters(:root_folder => Choice.choices[:output_dir], :db_location => Choice.choices[:database], :strain_names => strain_names, :clustering_cutoffs => clustering_cutoffs, :verbose => Choice.choices.has_key?("verbose"))
 
+  puts "Adding represenatives sequences to cluster database"
   # add represenatives to clusters
-  add_representative_sequences_to_cluster(:root_folder => Choice.choices[:output_dir], :db_location => Choice.choices[:database], :sequence_files => sequence_files, :strain_names => strain_names)
+  add_representative_sequences_to_cluster(:root_folder => Choice.choices[:output_dir], :db_location => Choice.choices[:database], :sequence_files => sequence_files, :strain_names => strain_names, :verbose => Choice.choices.has_key?("verbose"))
 
   # add super clusters if cutoff supplied
   if Choice.choices[:supercluster_cutoff]
@@ -304,7 +311,7 @@ when "create"
   end
 when "annotate"
     abort("You must supply at least one reference sequence with which to annotate") unless Choice.choices[:reference_blast_sequences]
-    reference_sequences => Choice.choices[:reference_blast_sequences].split(",")
+    reference_sequences = Choice.choices[:reference_blast_sequences].split(",")
     if Choice.choices[:annotate_versus_nr] 
     annotate_clusters(
       :db_location => Choice.choices[:database],
@@ -322,14 +329,14 @@ when "annotate"
       :ncbi_blast_program => Choice.choices[:ncbi_blast_program],
       :ncbi_percent_identity_cutoff => Choice.choices[:ncbi_percent_identity_cutoff],
       :ncbi_minimum_hit_length => Choice.choices[:ncbi_minimum_hit_length],
-      :annotate_vs_local_db => Choice.choices.has_key?(:annotate_versus_nr),
-      :annotate_by_remote_blast => Choice.choices.has_key?(:local_blast_database),
+      :annotate_vs_local_db => Choice.choices.has_key?("annotate_versus_nr"),
+      :annotate_by_remote_blast => Choice.choices.has_key?("local_blast_database"),
       :accept_reciprocal_hits_with_multiple_hits_incl_query  => true,
       :accept_first_reciprocal_hit_containing_query => false,
       :parallel_processors => Choice.choices[:number_of_processors])
   end
 when "search"
-  if Choice.choices[:find_core_genes]
+  if Choice.choices[:core_genes]
     core_clusters = find_core_clusters(:db_location => Choice.choices[:database])
     puts ["id", "cutoff", "parent cluster?", "number of members", "number of strains", "strains"].join("\t")
     core_clusters.each do |core_cluster|
@@ -342,12 +349,12 @@ when "search"
     end
   end
 when "output"
-  if Choice.choices[:presence_absence_data_file]
+  if Choice.choices[:presence_absence_file]
     output_gene_presence_absence(
           :db_location =>  Choice.choices[:database],
-          :output_filepath => "#{Choice.choices[:output_dir]}/#{Choice.choices[:presence_absence_data_file]}",
+          :output_filepath => "#{Choice.choices[:output_dir]}/#{Choice.choices[:presence_absence_file]}",
           :without_core_genes => true)
-  elsif Choice.choices[:genbank_output_strain_list_file]
+  elsif Choice.choices[:genbank_strain_file_list]
     require 'bioutils/rich_sequence_utils'
     sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
     strain_names.each_with_index do |strain_name, index|
@@ -357,7 +364,7 @@ when "output"
         :strain_name => strain_name,
         :sequence_file => sequence_files[index]
         }
-      if Choice.choices[:merge_contigs_in_genbank_files]
+      if Choice.choices[:merge_genbank_contigs]
         options[:merge_contigs] = true
       else
         options[:merge_contigs] = false
@@ -365,4 +372,6 @@ when "output"
       output_genbank_files_from_database(options)
     end
   end
+when "readme"
+  puts File.read(File.dirname(__FILE__) + "/../README.md")
 end

@@ -11,6 +11,7 @@ module ClusterCreate
   # @option options [Array] :sequence_files An array of filepaths listing each of the input sequence files
   # @option options [String] :training_sequence_path The path to a training sequence to be used in Glimmer  
   # @option options [String] :training_model_prefix The path to the training model if a training model has already been created
+  # @option options [Boolean] :verbose Print verbose output
 
   def create_cds_multi_fasta_file(options)
     require 'bioutils/rich_sequence_utils'
@@ -18,7 +19,8 @@ module ClusterCreate
     extend Glimmer
 
     default_options = {
-      :cds_multi_fasta_file => "cds_proteins.fas"
+      :cds_multi_fasta_file => "cds_proteins.fas",
+      :verbose => false
     }
     options.reverse_merge!(default_options)
 
@@ -42,21 +44,37 @@ module ClusterCreate
         elsif options[:training_sequence_path]
           model_file_prefix = File.basename(options[:training_sequence_path], File.extname(options[:training_sequence_path])) + "_glimmer"
           if File.exists?(model_file_prefix + ".icm")
-            puts "Predicting genes for file #{sequence_file} using training model ...."
+            if options[:verbose]
+              puts "Predicting genes for file #{sequence_file} using training model ...."
+            else
+              print "."
+            end
             run_glimmer_using_model(:input_sequence_path  => sequence_file, :prefix => model_file_prefix,:suppress_messages => true)
             predict_file = File.basename(sequence_file, File.extname(sequence_file)) + "_glimmer.predict"
           else
-            puts "Predicting genes for file #{sequence_file} using training sequence ...."
+            if options[:verbose]
+              puts "Predicting genes for file #{sequence_file} using training sequence ...."
+            else
+              print "."
+            end
             predict_file = predict_genes_using_glimmer(:input_sequence_path  => sequence_file,
                                           :rich_sequence_training_path => options[:training_sequence_path],
                                           :suppress_messages => true)
           end
         else
-          puts "Predicting genes for file #{sequence_file} using iterated glimmer...."
+          if options[:verbose]
+            puts "Predicting genes for file #{sequence_file} using iterated glimmer...."
+          else
+            print "."
+          end
           predict_using_iterated_glimmer(:suppress_messages => true, :input_sequence_path => sequence_file, :glimmer_predict_filename => File.basename(sequence_file, File.extname(sequence_file)))
           predict_file = File.basename(sequence_file, File.extname(sequence_file)) + ".predict"
         end
-        puts "Converting #{sequence_file} glimmer prediction to a genbank file ...."
+        if options[:verbose]
+          puts "Converting #{sequence_file} glimmer prediction to a genbank file ...."
+        else
+          print "."
+        end
         glimmer_genbank_file = glimmer_prediction_to_rich_sequence_file(:suppress_messages => true, :glimmer_predict_file => predict_file, :input_sequence_path  => sequence_file)
         files_with_cds << glimmer_genbank_file
       else
@@ -66,6 +84,7 @@ module ClusterCreate
 
     cds_multi_fasta_protein_file = File.open(options[:cds_multi_fasta_file], "w")
     read_cds_and_write_to_file(files_with_cds, cds_multi_fasta_protein_file)
+    processing_indicator(5)
 
     cds_multi_fasta_protein_file.close
   end
@@ -105,7 +124,7 @@ module ClusterCreate
   # @option options [String] :db_location The path and name of the database to be created
   # @option options [Array] :strain_names An array of strain names in the same order as the sequence files supplied to be clustered with cd-hit
   # @option options [Array] :clustering_cutoffs The percent id cutoffs to use when performing heirachical clustering with cd-hit
-  # @option options [Boolean] :show_timings If true then for debug purposes the time taken to create 100 clusters will be printed to screen
+  # @option options [Boolean] :verbose If true then for debug purposes the time taken to create 100 clusters will be printed to screen
   def make_db_clusters(options)
     require 'core-access/cluster_database'
     extend ClusterDB
@@ -113,7 +132,7 @@ module ClusterCreate
     require 'core-access/cluster_classes'
     default_options = {
       :clustering_cutoffs => [99, 98, 95, 90, 85],
-      :show_timings => false
+      :verbose => false
     }
     options.reverse_merge!(default_options)
 
@@ -126,7 +145,13 @@ module ClusterCreate
     Dir.chdir(options[:root_folder])
 
     connection = make_db_connection(options[:db_location]).connection
-    make_cluster_db_schema # make the datbase tables
+    if options[:verbose]
+      make_cluster_db_schema # make the datbase tables
+    else
+      silence do
+        make_cluster_db_schema # make the datbase tables
+      end
+    end
               
     cluster_collection = ClusterCollection.new
     options[:clustering_cutoffs].reverse.each do |cutoff|
@@ -143,8 +168,8 @@ module ClusterCreate
     end
 
     # create clusters
-    # create_clusters_in_db_by_sql(connection, cluster_collection, options[:clustering_cutoffs].last, options[:show_timings])
-    create_clusters_in_db(cluster_collection, options[:clustering_cutoffs].last, options[:show_timings])
+    # create_clusters_in_db_by_sql(connection, cluster_collection, options[:clustering_cutoffs].last, options[:verbose])
+    create_clusters_in_db(cluster_collection, options[:clustering_cutoffs].last, options[:verbose])
 
 
     puts "updating cluster number_of_members and number_of_strains"
@@ -159,11 +184,17 @@ module ClusterCreate
   # @option options [String] :db_location The path and name of the database to be created
   # @option options [Array] :strain_names An array of strain names in the same order as the sequence files supplied to be clustered with cd-hit
   # @option options [Array] :sequence_files An array of filepaths listing each of the input sequence files. Should be the same order as the strain names
+  # @option options [Bolean] :verbose Whether to ouput verbose debug information
   def add_representative_sequences_to_cluster(options)
     require 'core-access/cluster_database'
     extend ClusterDB
     require 'core-access/cluster_models'
     require 'bioutils/rich_sequence_utils'
+
+    default_options = {
+      :verbose => false
+    }
+    options.reverse_merge!(default_options)
 
     options = MethodArgumentParser::Parser.check_options options  do
       option :db_location, :required => true, :type => :string
@@ -181,7 +212,7 @@ module ClusterCreate
       end
     end
 
-    coding_sequences = load_genes_from_genomes(genbank_files, options[:strain_names])
+    coding_sequences = load_genes_from_genomes(genbank_files, options[:strain_names], options[:verbose])
     connection = make_db_connection(options[:db_location]).connection
     add_representatives_to_cluster(coding_sequences)
   end
@@ -250,6 +281,9 @@ module ClusterCreate
         sequence = sequence_entry.seq
         sequence_entry.each_cds do |cds|
           cds_counter += 1
+          if cds_counter % 500 == 0
+            processing_indicator(cds_counter/500 % 4)
+          end
           location_string =  cds.locations.to_s
           dna_cds_sequence  = sequence.splice(location_string)
           protein_cds_sequence = dna_cds_sequence.translate
@@ -348,21 +382,12 @@ module ClusterCreate
   end
 
   def create_clusters_in_db(cluster_collection, cutoff, show_timings = false)
-
-    # 
-      # Remove transactions
-      # ActiveRecord::ConnectionAdapters::SQLiteAdapter.class_eval do
-      #   def begin_db_transaction
-      #   end
-
-      #   def commit_db_transaction
-      #   end
-      # end
-      if show_timings
-        cluster_counter = 0
-        a = Time.now
-      end
-      cluster_collection.clusters.each do |cluster_index, cluster|
+    if show_timings
+      cluster_counter = 0
+      a = Time.now
+    end
+    cluster_collection.clusters.each do |cluster_index, cluster|
+      ActiveRecord::Base.transaction do
         if show_timings
           cluster_counter += 1
           if cluster_counter % 100 == 0
@@ -403,8 +428,7 @@ module ClusterCreate
         # db_cluster.save
         puts "Cluster #{db_cluster.id} created" if db_cluster.id % 100 == 0
       end
-      puts "Committing transaction to database"
-    # end
+    end
   end
 
   def create_clusters_in_db_by_sql(connection, cluster_collection, cutoff, show_timings = false)
@@ -451,7 +475,7 @@ module ClusterCreate
     puts "Committing transaction to database"
   end
 
-  def load_genes_from_genomes(genbank_files, strain_names) # pass in a list of genbank file paths
+  def load_genes_from_genomes(genbank_files, strain_names, verbose = false) # pass in a list of genbank file paths
     coding_sequences = Hash.new
     # load all genes into a hash
     genome_counter = 0
@@ -463,7 +487,9 @@ module ClusterCreate
       coding_sequences[genome_name] = Array.new
       offset = 0
       while genbank_entry = genbank_flatfile.next_entry
-        puts "Adding genes from #{genbank_entry.definition}"
+        if verbose
+          puts "Adding genes from #{genbank_entry.definition}"
+        end
         genbank_sequence = genbank_entry.seq
         genbank_entry.each_cds do |cds|
           location_string =  cds.locations.to_s
@@ -528,6 +554,7 @@ module ClusterCreate
       biosequence.na
       tmpfile_object.puts biosequence.translate(1,11)
     end
+    tmpfile_object.close
     return tmpfile_object
   end
 
@@ -646,31 +673,6 @@ module ClusterCreate
         # puts super_cluster.map{|c| c[:name]}.join(" ")
       end
     end
-  end
-
-  def make_blast_databases_from_clusters
-    require 'tempfile'
-    require 'bioutils/blast'
-    extend Blast
-    nucleotide_query_sequences = Tempfile.new('temp')
-    protein_query_sequences = Tempfile.new('temp')
-    
-    Cluster.all.each do |cluster|
-      next if cluster.representative.nil? # skip those clusters without a repesentative (super clusters)
-      representative_cds = cluster.representative
-      biosequence = Bio::Sequence.new(representative_cds.sequence)
-      biosequence.na
-      nucleotide_query_sequences.puts ">#{cluster.id}"
-      nucleotide_query_sequences.puts biosequence
-      
-      protein_query_sequences.puts ">#{cluster.id}"
-      protein_query_sequences.puts biosequence.translate(1,11)
-    end
-    
-    formatdb(:path_to_fasta_input_sequence => nucleotide_query_sequences.path, :database_name => "cluster_representatives", :final_db_location => "blast_databases")
-    
-    formatdb(:path_to_fasta_input_sequence => protein_query_sequences.path, :database_name => "cluster_representatives", :formatdb_options => "-o T -p T", :final_db_location => "blast_databases")
-
   end
 
   def update_cluster_number_of_members(clusters)

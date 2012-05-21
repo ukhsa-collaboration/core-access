@@ -126,4 +126,32 @@ module ClusterAnnotate
                 :annotate_by_remote_blast => options[:annotate_by_remote_blast])
     reciprocal_hit_details.delete_if{|hd| hd[0] =~ /(translation|transl_table)/} unless reciprocal_hit_details.nil?
   end
+
+  def make_blast_databases_from_clusters
+    require 'tempfile'
+    require 'bioutils/blast'
+    extend Blast
+    nucleotide_query_sequences = Tempfile.new('temp')
+    protein_query_sequences = Tempfile.new('temp')
+    
+    Cluster.all.each do |cluster|
+      next if cluster.representative.nil? # skip those clusters without a repesentative (super clusters)
+      representative_cds = cluster.representative
+      biosequence = Bio::Sequence.new(representative_cds.sequence)
+      biosequence.na
+      nucleotide_query_sequences.puts ">#{cluster.id}"
+      nucleotide_query_sequences.puts biosequence
+      
+      protein_query_sequences.puts ">#{cluster.id}"
+      protein_query_sequences.puts biosequence.translate(1,11)
+    end
+
+    nucleotide_query_sequences.close
+    protein_query_sequences.close
+    
+    formatdb(:path_to_fasta_input_sequence => nucleotide_query_sequences.path, :database_name => "cluster_representatives", :final_db_location => "blast_databases")
+    
+    formatdb(:path_to_fasta_input_sequence => protein_query_sequences.path, :database_name => "cluster_representatives", :formatdb_options => "-o T -p T", :final_db_location => "blast_databases")
+
+  end
 end

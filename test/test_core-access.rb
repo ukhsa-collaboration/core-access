@@ -32,16 +32,16 @@ class TestCoreAccess < Test::Unit::TestCase
     #   sequence_files, strain_names = extract_file_and_strain_names_from_file_list(:sequence_file_list => "#{@@test_dir}/fasta_sequence_file_list.txt")
     #   assert_equal ["strain1", "strain2"], strain_names
     # end
-    # should "create a multi fasta file from the input files" do
-    #   FileUtils.rm("/tmp/ref_glimmer.icm", :force => true)
-    #   FileUtils.rm("/tmp/cds_proteins.fas", :force => true)
-    #   sequence_files, strain_names = extract_file_and_strain_names_from_file_list(:sequence_file_list => "#{@@test_dir}/fasta_sequence_file_list.txt")
-    #   sequence_files.map!{|sf| "#{@@test_dir}/#{sf}"}
-    #   silence do
-    #     create_cds_multi_fasta_file(:training_sequence_path => "#{@@test_dir}/test_data/ref.gbk", :root_folder  => "/tmp", :cds_multi_fasta_file => "/tmp/cds_proteins.fas", :sequence_files => sequence_files)
-    #   end
-    #   assert File.exists?("/tmp/cds_proteins.fas")
-    # end
+    should "create a multi fasta file from the input files" do
+      FileUtils.rm("/tmp/ref_glimmer.icm", :force => true)
+      FileUtils.rm("/tmp/cds_proteins.fas", :force => true)
+      sequence_files, strain_names = extract_file_and_strain_names_from_file_list(:sequence_file_list => "#{@@test_dir}/fasta_sequence_file_list.txt")
+      sequence_files.map!{|sf| "#{@@test_dir}/#{sf}"}
+      silence do
+        create_cds_multi_fasta_file(:training_sequence_path => "#{@@test_dir}/test_data/ref.gbk", :root_folder  => "/tmp", :cds_multi_fasta_file => "/tmp/cds_proteins.fas", :sequence_files => sequence_files)
+      end
+      assert File.exists?("/tmp/cds_proteins.fas")
+    end
     # should "create cd-hit output from a multifasta file" do
     #   FileUtils.rm("/tmp/cdhit_clusters*", :force => true)
     #   silence do
@@ -144,11 +144,24 @@ class TestCoreAccess < Test::Unit::TestCase
   end
 
   context "core-access" do
+    should "print out read me file" do
+      output = `#{@@test_dir}/../bin/core-access readme`
+      puts output
+    end
     # should "be able to read in a config file in YAML format" do
     #   output = `#{@@test_dir}/../bin/core-access create -db test.sqlite3 -cf #{@@test_dir}/config_file.yml`
     #   assert output =~ /"clustering_cutoffs"=>"99-98-97-96-95-94-93-92-91-90-85"/
     # end
+    # should "fail to find glimmer3 when not specifying a glimmer path" do
+    #   output = `#{@@test_dir}/../bin/core-access create -db test.sqlite3 -od /tmp -fl #{@@test_dir}/fasta_sequence_file_list.txt -fd #{@@test_dir} 2>&1`
+    #   assert output =~ /glimmer3 must be in your PATH/
+    # end
 
+    # should "succeed to find glimmer3 when not specifying a glimmer path but it's in the PATH" do
+    #   ENV['PATH'] = ENV['PATH'] +  ":/usr/local/glimmer/bin"
+    #   output = `#{@@test_dir}/../bin/core-access create -db test.sqlite3 -od /tmp -fl #{@@test_dir}/fasta_sequence_file_list.txt -fd #{@@test_dir} 2>&1`
+    #   assert output =~ /Can not find cd-hit/
+    # end
 
     # should "fail to find glimmer3 in /tmp" do
     #   output = `#{@@test_dir}/../bin/core-access create -db test.sqlite3 -od /tmp -fl #{@@test_dir}/fasta_sequence_file_list.txt -fd #{@@test_dir} -gd /tmp 2>&1`
@@ -188,13 +201,13 @@ class TestCoreAccess < Test::Unit::TestCase
     #   assert_equal 2, Cluster.where(:id => Cluster.count).first.number_of_members
     #   assert_equal 1, Cluster.where(:id => Cluster.count).first.number_of_strains
     # end
-    should "find correct number of core genes" do
-      FileUtils.rm("/tmp/test.sqlite", :force => true)
-      FileUtils.cp("#{@@test_dir}/test_data/test_with_superclusters.sqlite", "/tmp/test.sqlite")
-      output = `#{@@test_dir}/../bin/core-access search -cg -db /tmp/test.sqlite`
-      assert_equal 327, output.split("\n").size # number of core genes = 326 + 1 header line
-      assert_equal "415\t85\tfalse\t2\t2\tstrain1\tstrain2", output.split("\n").last
-    end
+    # should "find correct number of core genes" do
+    #   FileUtils.rm("/tmp/test.sqlite", :force => true)
+    #   FileUtils.cp("#{@@test_dir}/test_data/test_with_superclusters.sqlite", "/tmp/test.sqlite")
+    #   output = `#{@@test_dir}/../bin/core-access search -cg -db /tmp/test.sqlite`
+    #   assert_equal 327, output.split("\n").size # number of core genes = 326 + 1 header line
+    #   assert_equal "415\t85\tfalse\t2\t2\tstrain1\tstrain2", output.split("\n").last
+    # end
 
     # should "output presence and absence data" do
     #   FileUtils.rm("/tmp/test.sqlite", :force => true)

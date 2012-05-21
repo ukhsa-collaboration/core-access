@@ -38,8 +38,7 @@ module Glimmer
 
     case options[:input_format] # generate temp fasta file if input not fasta format
     when :genbank, :embl
-      tmpfile_object = Tempfile.new('temp')
-      temp_fasta_file = File.new(tmpfile_object.path,'w')
+      temp_fasta_file = Tempfile.new('temp')
       case options[:input_format]
       when :genbank
         input_sequence = Bio::FlatFile.open(Bio::GenBank, options[:input_sequence_path]).next_entry

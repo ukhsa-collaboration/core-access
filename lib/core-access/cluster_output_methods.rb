@@ -19,7 +19,7 @@ module ClusterOutput
     require 'core-access/cluster_models'
 
     default_options = {
-      :without_core_genes  => false,
+      :without_core_genes  => true,
     }
     options.reverse_merge!(default_options)
 
@@ -35,25 +35,27 @@ module ClusterOutput
     strains = Strain.all
     output_file.puts "\t#{strains.map{|strain| strain.name}.join("\t")}"
 
-    clusters = get_clusters(options[:without_core_genes])
+    clusters = get_clusters(options)
 
     counter = 0
     clusters.each do |cluster|
-      counter += 1
-      puts "Completed output for #{counter} clusters" if counter % 100 == 0
-      products = cluster.representative.annotations.select{|annotation| annotation.qualifier == "product"}
-      cluster_descriptor = cluster.id.to_s
-      cluster_descriptor += ": " + products.map{|product| product.value}.join(", ") unless products.empty?
-      output_file.print "#{cluster_descriptor}"
-      strains_with_member_in_cluster = Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).group(:id).all
-      strains.each do |strain|
-        if strains_with_member_in_cluster.include?(strain)
-          output_file.print "\t1" #gene presence
-        else
-          output_file.print "\t0" #gene absence
+      ActiveRecord::Base.transaction do
+        counter += 1
+        puts "Completed output for #{counter} clusters" if counter % 100 == 0
+        products = cluster.representative.annotations.select{|annotation| annotation.qualifier == "product"}
+        cluster_descriptor = cluster.id.to_s
+        cluster_descriptor += ": " + products.map{|product| product.value}.join(", ") unless products.empty?
+        output_file.print "#{cluster_descriptor}"
+        strains_with_member_in_cluster = Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).group(:id).all
+        strains.each do |strain|
+          if strains_with_member_in_cluster.include?(strain)
+            output_file.print "\t1" #gene presence
+          else
+            output_file.print "\t0" #gene absence
+          end
         end
+        output_file.puts
       end
-      output_file.puts
     end
     output_file.close
   end
@@ -113,57 +115,61 @@ module ClusterOutput
     options.reverse_merge!(default_options)
     
     test_connection(options[:db_location])
+    ActiveRecord::Base.transaction do
+      output_file = File.open("#{options[:output_dir]}/#{File.basename(options[:sequence_file], File.extname(options[:sequence_file]))}_annotated.gbk", "w")
 
-    output_file = File.open("#{options[:output_dir]}/#{File.basename(options[:sequence_file], File.extname(options[:sequence_file]))}_annotated.gbk", "w")
+      sequence_objects = *rich_sequence_object_from_file(options[:sequence_file]) # * converts to array
 
-    sequence_objects = *rich_sequence_object_from_file(options[:sequence_file]) # * converts to array
-
-    strain = Strain.find_by_name(options[:strain_name])
-    if options[:merge_contigs]
-      features = Array.new
-      offset = 0
-      if sequence_objects.size > 1
+      strain = Strain.find_by_name(options[:strain_name])
+      puts "Producing annotated genbank file for #{strain.name}"
+      if options[:merge_contigs]
+        features = Array.new
+        offset = 0
+        if sequence_objects.size > 1
+          sequence_objects.each do |sequence_object|
+            location = "#{1 + offset}..#{sequence_object.seq.length + offset}"
+            features << Bio::Feature.new('contig', location)
+            offset += sequence_object.seq.length
+          end
+        end
+        combined_sequence = ""
         sequence_objects.each do |sequence_object|
-          location = "#{1 + offset}..#{sequence_object.seq.length + offset}"
-          features << Bio::Feature.new('contig', location)
-          offset += sequence_object.seq.length
+          combined_sequence += sequence_object.seq
         end
-      end
-      combined_sequence = ""
-      sequence_objects.each do |sequence_object|
-        combined_sequence += sequence_object.seq
-      end
-      genes = strain.genes.sort{|x,y| x.location.match(/\d+/).to_s.to_i <=> y.location.match(/\d+/).to_s.to_i}
-      genes.each do |gene|
-        features << create_bio_feature(gene, options[:merge_contigs])
-      end
-      write_bio_sequence(:sequence => combined_sequence, :features => features, :entry_id => options[:strain_name], :definition => options[:strain_name], :output_file => output_file)
-    else
-      genes = strain.genes.sort{|x,y| x.name.to_i <=> y.name.to_i}
-      previous_relative_location = 0
-      sequence_index = 0
-      features = Array.new
-      genes.each do |gene|
-        if gene.relative_location.match(/\d+/).to_s.to_i < previous_relative_location
-          write_bio_sequence(:sequence => sequence_objects[sequence_index].seq, :features => features, :entry_id => sequence_objects[sequence_index].entry_id, :definition => sequence_objects[sequence_index].definition, :output_file => output_file)
-          sequence_index += 1
-          features = Array.new
+        genes = strain.genes.sort{|x,y| x.location.match(/\d+/).to_s.to_i <=> y.location.match(/\d+/).to_s.to_i}
+        genes.each do |gene|
+          cluster_representative_for_gene = gene.clusters.where("is_parent_cluster = ?", false).first.representative
+          features << create_bio_feature(cluster_representative_for_gene, options[:merge_contigs])
         end
-        features << create_bio_feature(gene, options[:merge_contigs])
-        previous_relative_location = gene.relative_location.match(/\d+/).to_s.to_i
+        write_bio_sequence(:sequence => combined_sequence, :features => features, :entry_id => options[:strain_name], :definition => options[:strain_name], :output_file => output_file)
+      else
+        genes = strain.genes.sort{|x,y| x.name.to_i <=> y.name.to_i}
+        previous_relative_location = 0
+        sequence_index = 0
+        features = Array.new
+        genes.each do |gene|
+          if gene.relative_location.match(/\d+/).to_s.to_i < previous_relative_location
+            write_bio_sequence(:sequence => sequence_objects[sequence_index].seq, :features => features, :entry_id => sequence_objects[sequence_index].entry_id, :definition => sequence_objects[sequence_index].definition, :output_file => output_file)
+            sequence_index += 1
+            features = Array.new
+          end
+          cluster_representative_for_gene = gene.clusters.where("is_parent_cluster = ?", false).first.representative
+          features << create_bio_feature(cluster_representative_for_gene, options[:merge_contigs])
+          previous_relative_location = gene.relative_location.match(/\d+/).to_s.to_i
+        end
+        write_bio_sequence(:sequence => sequence_objects[sequence_index].seq, :features => features, :entry_id => sequence_objects[sequence_index].entry_id, :definition => sequence_objects[sequence_index].definition, :output_file => output_file)
       end
-      write_bio_sequence(:sequence => sequence_objects[sequence_index].seq, :features => features, :entry_id => sequence_objects[sequence_index].entry_id, :definition => sequence_objects[sequence_index].definition, :output_file => output_file)
+      output_file.close
     end
-    output_file.close
   end
 
   private
 
-  def get_clusters(options, without_core_genes = false)
+  def get_clusters(options)
     where_statement = "clusters.is_parent_cluster = ?"
     where_parameters = [false]
 
-    if (without_core_genes)
+    if (options[:without_core_genes])
       core_cluster_ids = find_core_clusters(:db_location => options[:db_location]).map{|cluster| cluster.id}
       where_statement += " AND clusters.id NOT IN (?)"
       where_parameters << core_cluster_ids

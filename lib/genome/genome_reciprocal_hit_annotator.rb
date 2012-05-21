@@ -29,9 +29,9 @@ class GenomeReciprocalHitAnnotator
   # @option options [String] :reference_blast_program Whether to use blastn or blastp for reference genome blast. Default is blastn
   # @option options [String] :reference_percent_identity_cutoff Percent id cut off for significant hit when doing local blast versus ref genomes
   # @option options [String] :reference_minimum_hit_length minimum hit length when doing local blast versus ref genomes
-  # @option options [String] :local_db_blast_program Whether to use blastn or blastp for microbial genomes blast. Default is blastn
-  # @option options [String] :local_db_percent_identity_cutoff Percent id cut off for significant hit when doing local blast versus microbial genomes
-  # @option options [String] :local_db_minimum_hit_length minimum hit length when doing local blast versus microbial genomes
+  # @option options [String] :local_db_blast_program Whether to use blastn or blastp for local database blast. Default is blastn
+  # @option options [String] :local_db_percent_identity_cutoff Percent id cut off for significant hit when doing local blast versus local database
+  # @option options [String] :local_db_minimum_hit_length minimum hit length when doing local blast versus local database
   # @option options [String] :ncbi_blast_program Whether to use blastn or blastp for NCBI blast. Default is blastn
   # @option options [String] :ncbi_percent_identity_cutoff Percent id cut off for significant hit when doing remote blast versus NCBI nr
   # @option options [String] :ncbi_minimum_hit_length minimum hit length when doing remote blast versus NCBI nr
@@ -283,14 +283,14 @@ class GenomeReciprocalHitAnnotator
   # @option options [String] :reference_minimum_hit_length minimum hit length when doing local blast versus ref genomes
   # @option options [Boolean] :accept_first_reciprocal_hit_containing_query For faster blast searching setting this to true will mean that a reciprocal hit will be reported even if there are several hits when performing the reciprocal hit process (e.g a gene in a gene family)
   # @option options [Boolean] :accept_reciprocal_hits_with_multiple_hits_incl_query If this option is true (Default) and :accept_first_reciprocal_hit_containing_query is false then will fall back to a reciprocal hit  with multiple hits at the last possible stage rather than first
-  # @option options [String] :local_blast_db The path to the blast database(s)to be used when searching a local blast database (e.g microbial genomes)
-  # @option options [String] :local_db_percent_identity_cutoff Percent id cut off for significant hit when doing local blast versus microbial genomes
-  # @option options [String] :local_db_minimum_hit_length minimum hit length when doing local blast versus microbial genomes
-  # @option options [String] :local_db_blast_program Whether to use blastn or blastp for microbial genomes blast. Default is blastn
+  # @option options [String] :local_blast_db The path to the blast database(s)to be used when searching a local blast database (e.g local database)
+  # @option options [String] :local_db_percent_identity_cutoff Percent id cut off for significant hit when doing local blast versus local database
+  # @option options [String] :local_db_minimum_hit_length minimum hit length when doing local blast versus local database
+  # @option options [String] :local_db_blast_program Whether to use blastn or blastp for local database blast. Default is blastn
   # @option options [String] :ncbi_blast_program Whether to use blastn or blastp for NCBI blast. Default is blastn
   # @option options [String] :ncbi_percent_identity_cutoff Percent id cut off for significant hit when doing remote blast versus NCBI nr
   # @option options [String] :ncbi_minimum_hit_length minimum hit length when doing remote blast versus NCBI nr
-  # @options options [Boolean] :annotate_vs_local_db Whether to annotate versus a local blast databae, e.g microbial genomes
+  # @options options [Boolean] :annotate_vs_local_db Whether to annotate versus a local blast databae, e.g local database
   # @options options [Boolean] :annotate_by_remote_blast Whether to annotate versus NCBI by remote blast
   # @options options [Boolean] :display_metrics Whether or not to show results of sign
   def self.annotate_sequence(options)
@@ -335,7 +335,7 @@ class GenomeReciprocalHitAnnotator
       reciprocal_hit_reported, reciprocal_hit_qualifiers = local_db_reciprocal_blast(nucleotide_query_sequence, protein_query_sequence, options)
       if reciprocal_hit_reported
         return reciprocal_hit_qualifiers
-      elsif options[:annotate_by_remote_blast]# local blast vs ref genomes and microbial genomes failed
+      elsif options[:annotate_by_remote_blast]# local blast vs ref genomes and local database failed
         reciprocal_hit_reported, reciprocal_hit_qualifiers = remote_reciprocal_blast(nucleotide_query_sequence, protein_query_sequence, options)
         if reciprocal_hit_reported
           return reciprocal_hit_qualifiers
@@ -411,7 +411,7 @@ class GenomeReciprocalHitAnnotator
     end
     reciprocal_hit_found, reciprocal_hit_details, reciprocal_hit_qualifiers = find_local_reciprocal_hit(:query_sequence => query_sequence,:query_sequence_blast_database => options[:query_sequence_database_name],:subject_blast_database => options[:local_blast_db], :blast_dir => options[:blast_dir], :blast_program => options[:local_db_blast_program], :blast_options => "-e #{options[:e_cutoff]} -F F -b 10 -v 10",:percent_identity_cutoff => percent_identity_cutoff, :minimum_hit_length => options[:local_db_minimum_hit_length], :fastacmd_dir => options[:fastacmd_dir], :display_metrics => options[:display_metrics])
     if reciprocal_hit_found || (!reciprocal_hit_qualifiers.nil? && options[:accept_first_reciprocal_hit_containing_query]) || ( !reciprocal_hit_qualifiers.nil? && !options[:annotate_by_remote_blast] && options[:accept_reciprocal_hits_with_multiple_hits_incl_query] )
-      puts "Found hit to #{reciprocal_hit_details} by local blast against all microbial genomes"
+      puts "Found hit to #{reciprocal_hit_details} by local blast against local database"
       reciprocal_hit_qualifiers.unshift(["note", "Annotation derived by reciprocal #{options[:local_db_blast_program]} analysis against all microbial genome sequences (percent_identity_cutoff: #{percent_identity_cutoff}, minimum_hit_length: #{options[:local_db_minimum_hit_length]}). Annotation from #{extract_organism_qualifier(reciprocal_hit_qualifiers)}"])
       if !reciprocal_hit_found # multiple reciprocal hits
         reciprocal_hit_qualifiers.unshift(["note", "N.B reciprocal blast analysis found that the reciprocal hit matched multiple sequences including the query (possible gene family)."])
@@ -419,9 +419,9 @@ class GenomeReciprocalHitAnnotator
       return true, reciprocal_hit_qualifiers
     else
       if reciprocal_hit_details !~ /^No/
-        puts "local blast failed vs microbial genomes: Matched #{reciprocal_hit_details} but found multiple hits with the reciprocal blast"
+        puts "local blast failed vs local database: Matched #{reciprocal_hit_details} but found multiple hits with the reciprocal blast"
       else
-        puts "local blast failed vs microbial genomes: #{reciprocal_hit_details}"
+        puts "local blast failed vs local database: #{reciprocal_hit_details}"
       end
       return false, reciprocal_hit_qualifiers
     end
