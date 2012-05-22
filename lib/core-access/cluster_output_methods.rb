@@ -12,7 +12,16 @@ module ClusterOutput
     cluster_info["strain_names"] =  Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).map{|strain| strain.name}
   end
 
-  # a method to output presence and absence data
+  # a method to output presence and absence data from clusters as a tab-separated 1/0 matrix with each
+  # row representing a cluster and each column the presence of a gene from strain x in that cluster.
+  # The first item in each row will be the cluster id and product if the cluster has such an annotation
+  # @param [Hash] options A hash of options
+  # @option options [String] :db_location The path and name of the core-access database
+  # @option options [String] :output_filepath The path of the output file that wiil be created
+  # containing presence and absence data 
+  # @option options [Boolean] :without_core_genes Whether to include core genes in the output. Generally this
+  # will be inadvisable since every core gene will consist of a row of all 1's. To find core genes use the 
+  # find_core_clusters instead
   def output_gene_presence_absence(options)
     require 'core-access/cluster_database'
     extend ClusterDB
@@ -59,7 +68,20 @@ module ClusterOutput
     end
     output_file.close
   end
-
+  
+  # This method outputs the gene names for each strain given a list of clusters or if not if no list is given
+  # the clusters ordered by id. Since the gene names are sequential numbers based on the order in the original
+  # sequence file used to generate the database the output can be used to determine if the order of the genes
+  # in a particular sequence of clusters is also sequential in the sequence. An example of how to use this is
+  # to output presence absence data and, cluster the resulting 1/0 matrix with a program such as jExpress and
+  # take the cluster ids based on the order after clustering as input for this method. This would determine if
+  # any of the blocks of clusters derived from clustering are formed of contiguous blocks of genes e.g a 
+  # genomic island
+  # @param [Hash] options A hash of options
+  # @option options [String] :db_location The path and name of the core-access database
+  # @option options [String] :output_filepath The path of the output file that wiil be created
+  # @option options [Array] :cluster_order An array of cluster ids that will be retrieved in order to determine
+  # the genee order in each strain relative to the cluster order specified in this option
   def output_gene_order(options)
     require 'core-access/cluster_database'
     extend ClusterDB
@@ -107,12 +129,28 @@ module ClusterOutput
     end
     output_file.close
   end
-
+  
+  # A method to output a genbank format file based on the annotation in the database. The sequence file originally
+  # used to make the database and associated strain name are the required inputs. The file will be created in the
+  # same location as the input sequence file
+  # @param [Hash] options A hash of options
+  # @option options [String] :db_location The path and name of the core-access database
+  # @option options [String] :strain_name The name of the strain to be annotated
+  # @option options [String] :sequence_file The path to the sequence file associated with the strain and used to
+  # originally create the database
+  # @option options [Boolean] :merge_contigs Whether to merge the contigs to produce just a single entry in the
+  # GenBank file. The position of the contigs will be recorded in the annotation if this is specified.
   def output_genbank_files_from_database(options)
     default_options = {
       :merge_contigs  => true
     }
     options.reverse_merge!(default_options)
+    
+    options = MethodArgumentParser::Parser.check_options options  do
+      option :db_location, :required => true, :type => :string
+      option :strain_name, :required => true, :type => :string
+      option :sequence_file, :required => true, :type => :string
+    end
     
     test_connection(options[:db_location])
     ActiveRecord::Base.transaction do
@@ -164,7 +202,12 @@ module ClusterOutput
   end
 
   private
-
+  
+  # A method to return an array of Clusters. It will fetch only clusters that are not super clusters. If the option
+  # :without_core_genes is true then only "non-core" clusters will be returned
+  # @param [Hash] options A hash of options
+  # @option options [String] :db_location The path and name of the core-access database
+  # @option options [Boolean] ::without_core_genes Whether or not to include core genes in when returning clusters
   def get_clusters(options)
     where_statement = "clusters.is_parent_cluster = ?"
     where_parameters = [false]
@@ -180,6 +223,12 @@ module ClusterOutput
     return Cluster.where(where_array).all
   end
   
+  # A method to create a new Bio::Feature based on a gene in the database. This will usually be a cluster
+  # representative which has annotations. If there are no annotations then only the gene location will be 
+  # recorded in the feature
+  # @param [Gene] a gene from the core-access database
+  # @param [Boolean] merge_contigs Whether to use the absolute or relative location. If merging contigs
+  # then the absolute location will be used
   def create_bio_feature(gene, merge_contigs)
     if merge_contigs
       cds = Bio::Feature.new('CDS', gene.location)
@@ -195,6 +244,13 @@ module ClusterOutput
     return cds
   end
   
+  # A method to write out a Bio::Sequence in Genbank format
+  # @param [Hash] options A hash of options
+  # @option options [String] :sequence The sequence as text
+  # @option options [String] :entry_id The entry id (equivalent to accession)
+  # @option options [String] :definition The definition line for the sequence. This should be descriptive
+  # @option options [Array] :features An array of Bio::Features to be written out in GenBank format
+  # @option options [String] :output_file The path to the file that will be written in GenBank format
   def write_bio_sequence(options)
     bio_sequence = Bio::Sequence.new(options[:sequence])
     bio_sequence.na
@@ -203,7 +259,7 @@ module ClusterOutput
     bio_sequence.molecule_type = "DNA"
     bio_sequence.topology = "linear"
     bio_sequence.division = "PRO"
-    bio_sequence.date_created = "18-NOV-2009"
+    bio_sequence.date_created = "#{Date.today.day}-#{Date::ABBR_MONTHNAMES[Date.today.month].upcase}-#{Date.today.year}"
     bio_sequence.features = options[:features]
     options[:output_file].puts bio_sequence.output(:genbank)
   end

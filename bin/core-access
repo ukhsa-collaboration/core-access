@@ -251,7 +251,8 @@ Choice.options do
 
 end
 
-# puts Choice.class_variable_get("@@options").map{|option_name, choice_option| choice_option.desc.inspect}
+puts Choice.class_variable_get("@@options").map{|option_name, choice_option| choice_option.desc.inspect}
+exit
 
 abort(Choice.help) if core_access_command.nil? || !["create", "annotate", "search", "output", "readme"].include?(core_access_command)
 if Choice.choices[:config_file]
