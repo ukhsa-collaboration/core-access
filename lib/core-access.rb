@@ -11,6 +11,42 @@ require 'core-access/cluster_database'
 extend ClusterDB
 require 'core-access/cluster_models'
 
+def print_help_for(command)
+  choice_options = Choice.class_variable_get("@@options").dup
+  choice_option = nil
+  common_options = Array.new
+
+  until choice_option.class == String && choice_option =~ /Arguments common to all commands/ do
+    choice_option = choice_options.shift
+  end
+
+  until (choice_option.class == String && choice_option =~ /Arguments for/) || choice_option.nil? do
+    choice_option = choice_options.shift
+    common_options << choice_option.last if choice_option.class == Array
+  end
+
+  until choice_option.class == String && choice_option =~ /Arguments for #{command}/ do
+    choice_option = choice_options.shift
+  end
+
+  command_options = Array.new
+  until (choice_option.class == String && choice_option !~ /Arguments for #{command}/ && choice_option =~ /Arguments for/) || choice_option.nil? do
+    choice_option = choice_options.shift
+    command_options << choice_option.last if choice_option.class == Array
+  end
+
+  puts "Usage: core-access #{command} OPTIONS"
+  puts "Arguments common to all commands:"
+  common_options.each do |common_option|
+    print_option(common_option)
+  end
+  puts
+  puts "Options for the core-access #{command} command:"
+  command_options.each do |command_option|
+    print_option(command_option)
+  end
+end
+
 def determine_glimmer_directory(choices)
   if choices[:glimmer_dir]
     glimmer_dir = choices[:glimmer_dir]
@@ -78,4 +114,43 @@ def processing_indicator(indicator_pos)
     print "#{reset}"
   end
   $stdout.flush
+end
+
+private
+def print_option(option)
+  # Make this easier on us
+  short = option.short
+  long = option.long
+  line = ''
+
+  # Get the short part.
+  line << sprintf("%6s", short)
+  line << sprintf("%-2s", (',' if short && long))
+
+  # Get the long part.
+  line << sprintf("%-29s", long)
+
+  # Print what we have so far
+  print line
+
+  # If there's a desc, print it.
+  if option.desc
+    # If the line is too long, spill over to the next line
+    if line.length > 37
+      puts           
+      print " " * 37
+    end
+
+    puts option.desc.shift
+    
+    # If there is more than one desc line, print each one in succession
+    # as separate lines.
+    option.desc.each do |desc| 
+      puts ' '*37 + desc
+    end
+
+  else
+    # No desc, just print a newline.
+    puts 
+  end
 end

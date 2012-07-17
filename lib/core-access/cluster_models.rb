@@ -19,6 +19,10 @@
     def self.number_of_strains(cluster_id)
       joins(:genes => :strain).select("DISTINCT strains.id").where("clusters.id = ?", cluster_id).count
     end
+
+    def strain_names
+      Strain.joins(:genes => :clusters).where("clusters.id = ?", self.id).map{|strain| strain.name}
+    end
   end
   class ClusterMembership < ActiveRecord::Base
     belongs_to :gene

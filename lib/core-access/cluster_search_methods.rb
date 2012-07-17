@@ -34,15 +34,18 @@ module ClusterSearch
     else
       sql_statement += " GROUP BY id HAVING COUNT(*) = #{strain_names.size}"
     end
-    return Cluster.find_by_sql(sql_statement)
+    clusters = Cluster.find_by_sql(sql_statement)
+    return clusters
   end
 
   def find_unique_clusters(options) #finds gene that are exclusive to ALL strains supplied 
     options.merge!(:unique => true)
+    find_shared_clusters(options)
   end
   
   def find_partial_shared_clusters(options)#find genes exclusive to SOME members of the set of strains supplied
     options.merge!(:unique_to_subset => true)
+    find_shared_clusters(options)
   end
 
   def find_core_clusters(options = {})
@@ -66,7 +69,7 @@ module ClusterSearch
       option :annotation, :required => true, :type => :string
     end
 
-    test_connection
+    test_connection(options[:db_location])
 
     Gene.joins(:annotations).where("annotations.value LIKE ?", "%#{options[:annotation]}%")
   end

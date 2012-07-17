@@ -1,15 +1,14 @@
 module ClusterOutput
-  # a method to return summary information about a cluster
+  # a method to print summary information about a cluster
   # @param [Cluster] cluster The cluster object (ActiveRecord) to return summary information for
   # @param [Array] attributes An array of strings listing the cluster attributes that should be returned in the summary
   # default is ["id", "cutoff", "is_parent_cluster", "number_of_members", "number_of_strains"])
-  # @return [Hash] A hash of the cluster summary information. Descriptor name is the key and the info recorded in the value
-  def cluster_summary(cluster, attributes = ["id", "cutoff", "is_parent_cluster", "number_of_members", "number_of_strains"])
-    cluster_info = Hash.new
-    attributes.each do |attribute|
-      cluster_info[attribute] = cluster.send(attribute)
+  def print_cluster_summary(cluster, attributes = ["id", "cutoff", "is_parent_cluster", "number_of_members", "number_of_strains"])
+    cluster_summary_array = Array.new
+    attributes.each do |field|
+      cluster_summary_array << cluster.send(field)
     end
-    cluster_info["strain_names"] =  Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).map{|strain| strain.name}
+    puts cluster_summary_array.join("\t")
   end
 
   # a method to output presence and absence data from clusters as a tab-separated 1/0 matrix with each
@@ -177,7 +176,7 @@ module ClusterOutput
         genes = strain.genes.sort{|x,y| x.location.match(/\d+/).to_s.to_i <=> y.location.match(/\d+/).to_s.to_i}
         genes.each do |gene|
           cluster_representative_for_gene = gene.clusters.where("is_parent_cluster = ?", false).first.representative
-          features << create_bio_feature(cluster_representative_for_gene, options[:merge_contigs])
+          features << create_bio_feature(gene, cluster_representative_for_gene.annotations, options[:merge_contigs])
         end
         write_bio_sequence(:sequence => combined_sequence, :features => features, :entry_id => options[:strain_name], :definition => options[:strain_name], :output_file => output_file)
       else
@@ -192,7 +191,7 @@ module ClusterOutput
             features = Array.new
           end
           cluster_representative_for_gene = gene.clusters.where("is_parent_cluster = ?", false).first.representative
-          features << create_bio_feature(cluster_representative_for_gene, options[:merge_contigs])
+          features << create_bio_feature(gene, cluster_representative_for_gene.annotations, options[:merge_contigs])
           previous_relative_location = gene.relative_location.match(/\d+/).to_s.to_i
         end
         write_bio_sequence(:sequence => sequence_objects[sequence_index].seq, :features => features, :entry_id => sequence_objects[sequence_index].entry_id, :definition => sequence_objects[sequence_index].definition, :output_file => output_file)
@@ -226,17 +225,18 @@ module ClusterOutput
   # A method to create a new Bio::Feature based on a gene in the database. This will usually be a cluster
   # representative which has annotations. If there are no annotations then only the gene location will be 
   # recorded in the feature
-  # @param [Gene] a gene from the core-access database
+  # @param [Gene] gene a gene from the core-access database
+  # @param [Array] annotations An array of Bio::Qualifiers that will be used to annotate the feature
   # @param [Boolean] merge_contigs Whether to use the absolute or relative location. If merging contigs
   # then the absolute location will be used
-  def create_bio_feature(gene, merge_contigs)
+  def create_bio_feature(gene, annotations,  merge_contigs)
     if merge_contigs
       cds = Bio::Feature.new('CDS', gene.location)
     else
       cds = Bio::Feature.new('CDS', gene.relative_location)
     end
-    unless gene.annotations.empty?
-      gene.annotations.each do |annotation|
+    unless annotations.empty?
+        annotations.each do |annotation|
         cds.append(Bio::Feature::Qualifier.new("#{annotation.qualifier}", "#{annotation.value}"))
       end
     end
