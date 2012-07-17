@@ -14,3 +14,5 @@ Once putative proteins have been clustered the information from the clusters is 
 
  ![schema](core-access/raw/master/Schema.png)
 
+This schema allows querying of the data to find distributions of proteins amongst subsets of the strains.
+
