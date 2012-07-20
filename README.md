@@ -16,3 +16,25 @@ Once putative proteins have been clustered the information from the clusters is 
 
 This schema allows querying of the data to find distributions of proteins amongst subsets of the strains.
 
+Installation
+------------
+Core Access will run on any Unix-based machine including MacOSX. It also requires Ruby (>=1.8.7 and easily installed by most systems package manager e.g yum or apt or via [Ruby Version Manager RVM](https://rvm.io)) and [Sqlite3](http://www.sqlite.org/).  
+If these requirements are met then installation of Core Access is as simple as running the command  
+ `gem install core-access`  
+This uses the Ruby package manager, Rubygems, to install the program and all it's dependencies.
+
+Running Core-Access
+-------------------
+Core Access can be run using one of several commands. These are
+
+*  create (the key command to cluster proteins and create the database that records the clustering information)
+*  annotate (annotate the clusters in the database using blast)
+*  search (query the database for information such as core genes and genes unique to a subset of strains)
+*  output (produce output from the database such as a presence and absence matrix or annotated genbank files)
+*  readme (produce read me information for each command including options)
+Options for each command can either be given as arguments e.g -od /path/to/a/directory or --output_directory /path/to/a/directory or in a config file in YAML format e.g
+    output_dir: /path/to/a/directory
+    sequence_file_list: fasta_sequence_file_list.txt
+
+###Create###
+
