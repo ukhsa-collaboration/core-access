@@ -18,7 +18,7 @@ This schema allows querying of the data to find distributions of proteins amongs
 
 Installation
 ------------
-Core Access will run on any Unix-based machine including MacOSX. It also requires Ruby (>=1.8.7 and easily installed by most systems package manager e.g yum or apt or via [Ruby Version Manager RVM](https://rvm.io)) and [Sqlite3](http://www.sqlite.org/).  
+Core Access will run on any Unix-based machine including MacOSX. It also requires Ruby (>=1.8.7 and easily installed by most systems package manager e.g yum or apt or via [Ruby Version Manager RVM](https://rvm.io)), [Sqlite3](http://www.sqlite.org/), [CD-HIT](http://weizhong-lab.ucsd.edu/cd-hit) and in most cases [Glimmer3](http://www.cbcb.umd.edu/software/glimmer) will also be needed.  
 If these requirements are met then installation of Core Access is as simple as running the command  
  `gem install core-access`  
 This uses the Ruby package manager, Rubygems, to install the program and all it's dependencies.
@@ -32,9 +32,16 @@ Core Access can be run using one of several commands. These are
 *  search (query the database for information such as core genes and genes unique to a subset of strains)
 *  output (produce output from the database such as a presence and absence matrix or annotated genbank files)
 *  readme (produce read me information for each command including options)
-Options for each command can either be given as arguments e.g -od /path/to/a/directory or --output_directory /path/to/a/directory or in a config file in YAML format e.g
+
+Options for each command can either be given as arguments e.g -od /path/to/a/directory or --output_directory /path/to/a/directory or in a config file in YAML format (full option names required) e.g
     output_dir: /path/to/a/directory
     sequence_file_list: fasta_sequence_file_list.txt
 
+All commands require two essential options
+
+*  `-db/--database` The path to the sqlite database that will either be created or accessed
+*  `-od/--output_dir` The path to the output directory where files will be created as part of the process
+
 ###Create###
+This command will take all sequences supplied (usually genomic sequences) and generate putative proteins from them. If the sequence file supplied is in a rich sequence format such as GenBank or EMBL then the CDS features within these files will be used to specify the genes, otherwise if supplied in fasta format the genes will be predicted using [Glimmer3](http://www.cbcb.umd.edu/software/glimmer). Therefore if you are supplying unannotated sequence in fasta format you will need to install Glimmer3.
 

@@ -23,7 +23,7 @@ Choice.options do
 
   option :database do
     short '-db'
-    long '--database DATABASE'
+    long '--database'
     desc 'Path to database file'
   end
 
