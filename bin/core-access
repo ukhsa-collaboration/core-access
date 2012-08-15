@@ -303,7 +303,6 @@ when "create"
   sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
   # check sequence files exist
   sequence_files.each do |sequence_file|
-    puts sequence_file
     abort("You specified a sequence file : #{sequence_file}. This does not exist! Please check your sequece file list") unless File.exists?(sequence_file)
   end
 
