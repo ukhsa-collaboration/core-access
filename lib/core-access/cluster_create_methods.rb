@@ -39,7 +39,7 @@ module ClusterCreate
       if sequence_format == :fasta
         if options[:training_model_prefix]
           puts "Predicting genes for file #{sequence_file} using training model ...."
-          run_glimmer_using_model(:input_sequence_path  => sequence_file, :prefix => options[:training_model_prefix],:suppress_messages => true)
+          run_glimmer_using_model(:input_sequence_path  => sequence_file, :prefix => options[:training_model_prefix],:glimmer_dir_path => options[:glimmer_dir], :suppress_messages => true)
           predict_file = File.basename(sequence_file, File.extname(sequence_file)) + "_glimmer.predict"
         elsif options[:training_sequence_path]
           model_file_prefix = File.basename(options[:training_sequence_path], File.extname(options[:training_sequence_path])) + "_glimmer"
@@ -49,7 +49,7 @@ module ClusterCreate
             else
               print "."
             end
-            run_glimmer_using_model(:input_sequence_path  => sequence_file, :prefix => model_file_prefix,:suppress_messages => true)
+            run_glimmer_using_model(:input_sequence_path  => sequence_file, :prefix => model_file_prefix,:glimmer_dir_path => options[:glimmer_dir], :suppress_messages => true)
             predict_file = File.basename(sequence_file, File.extname(sequence_file)) + "_glimmer.predict"
           else
             if options[:verbose]
@@ -57,8 +57,10 @@ module ClusterCreate
             else
               print "."
             end
+            puts "here"
             predict_file = predict_genes_using_glimmer(:input_sequence_path  => sequence_file,
                                           :rich_sequence_training_path => options[:training_sequence_path],
+                                          :glimmer_dir_path => options[:glimmer_dir],
                                           :suppress_messages => true)
           end
         else
@@ -67,7 +69,7 @@ module ClusterCreate
           else
             print "."
           end
-          predict_using_iterated_glimmer(:suppress_messages => true, :input_sequence_path => sequence_file, :glimmer_predict_filename => File.basename(sequence_file, File.extname(sequence_file)))
+          predict_using_iterated_glimmer(:suppress_messages => true, :input_sequence_path => sequence_file, :glimmer_predict_filename => File.basename(sequence_file, File.extname(sequence_file)),:glimmer_dir_path => options[:glimmer_dir])
           predict_file = File.basename(sequence_file, File.extname(sequence_file)) + ".predict"
         end
         if options[:verbose]

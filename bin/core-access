@@ -301,6 +301,10 @@ when "create"
     abort("You must specify a file with the input sequences files using the -fl option")
   end
   sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
+  # check sequence files exist
+  sequence_files.each do |sequence_file|
+    abort("You specified a sequence file : #{sequence_file}. This does not exist! Please check your sequece file list") unless File.exists?(sequence_file)
+  end
 
   if glimmer_dir.nil? && !sequence_files.select{|f| f =~ /(\.fa|\.fas|\.fsa|\.fasta)$/}.empty?
     print_help_for(core_access_command)
@@ -332,7 +336,7 @@ when "create"
 
   # make multi fasta file from genomes
   puts "Creating fasta file from predicted proteins of all sequences"
-  create_cds_multi_fasta_file(:training_sequence_path => Choice.choices[:training_sequence_path], :root_folder  => Choice.choices[:output_dir], :cds_multi_fasta_file => "#{Choice.choices[:output_dir]}/cds_proteins.fas", :sequence_files => sequence_files, :verbose => Choice.choices.has_key?("verbose"))
+  create_cds_multi_fasta_file(:training_sequence_path => Choice.choices[:training_sequence_path], :root_folder  => Choice.choices[:output_dir], :cds_multi_fasta_file => "#{Choice.choices[:output_dir]}/cds_proteins.fas", :sequence_files => sequence_files, :verbose => Choice.choices.has_key?("verbose"), :glimmer_dir => glimmer_dir)
   puts
 
   puts "Performing cdhit clustering"
