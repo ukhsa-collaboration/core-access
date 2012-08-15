@@ -57,7 +57,6 @@ module ClusterCreate
             else
               print "."
             end
-            puts "here"
             predict_file = predict_genes_using_glimmer(:input_sequence_path  => sequence_file,
                                           :rich_sequence_training_path => options[:training_sequence_path],
                                           :glimmer_dir_path => options[:glimmer_dir],
