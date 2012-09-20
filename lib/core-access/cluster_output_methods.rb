@@ -41,7 +41,15 @@ module ClusterOutput
     output_file = File.open(options[:output_filepath], "w")
 
     strains = Strain.all
-    output_file.puts "\t#{strains.map{|strain| strain.name}.join("\t")}"
+    if options[:annotation_order]
+      output_file.print "Cluster id\t"
+      options[:annotation_order].each do |annotation_qualifier|
+        output_file.print "#{annotation_qualifier}\t"
+      end
+      output_file.puts strains.map{|strain| strain.name}.join("\t")
+    else
+      output_file.puts "Descriptor (id: gene; protein_id; product)\t#{strains.map{|strain| strain.name}.join("\t")}"
+    end
 
     clusters = get_clusters(options)
 
@@ -50,9 +58,26 @@ module ClusterOutput
       ActiveRecord::Base.transaction do
         counter += 1
         puts "Completed output for #{counter} clusters" if counter % 100 == 0
-        products = cluster.representative.annotations.select{|annotation| annotation.qualifier == "product"}
-        cluster_descriptor = cluster.id.to_s
-        cluster_descriptor += ": " + products.map{|product| product.value}.join(", ") unless products.empty?
+        if options[:annotation_order]
+          cluster_descriptor = "#{cluster.id.to_s}"
+          options[:annotation_order].each do |annotation_qualifier|
+            cluster_descriptor += "\t"
+            annotations = cluster.representative.annotations.select{|annotation| annotation.qualifier == annotation_qualifier}
+            cluster_descriptor += annotations.map{|annotation| annotation.value}.join(", ") unless annotations.empty?
+          end
+        else  
+          products = cluster.representative.annotations.select{|annotation| annotation.qualifier == "product"}
+          genes = cluster.representative.annotations.select{|annotation| annotation.qualifier == "gene"}
+          protein_ids = cluster.representative.annotations.select{|annotation| annotation.qualifier == "protein_id"}
+          cluster_descriptor = "#{cluster.id.to_s}: "
+          if products.empty? && genes.empty? && protein_ids.empty?
+            cluster_descriptor += "No annotation"
+          else
+            cluster_descriptor += genes.map{|gene| gene.value}.join(", ") + "; " unless genes.empty?
+            cluster_descriptor += protein_ids.map{|protein_id| protein_id.value}.join(", ") + "; " unless protein_ids.empty?
+            cluster_descriptor += products.map{|product| product.value}.join(", ") + "; " unless products.empty?
+          end
+        end
         output_file.print "#{cluster_descriptor}"
         strains_with_member_in_cluster = Strain.joins(:genes => :clusters).where("clusters.id = ?", cluster.id).group(:id).all
         strains.each do |strain|

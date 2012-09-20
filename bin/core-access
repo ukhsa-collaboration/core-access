@@ -174,7 +174,7 @@ Choice.options do
     short '-lbl'
     long '--local_database_minimum_hit_length'
     desc 'The minimum percent length of the query which must match in the blast alignment for significant hits'
-    desc 'against a local genomes database (Deafult 85)'
+    desc 'against a local genomes database (Default 85)'
     cast Integer
     default 85
   end
@@ -182,7 +182,7 @@ Choice.options do
   option :annotate_versus_nr do
     short '-anr'
     long '--annotate_versus_nr'
-    desc 'Whether to annotate using remote blast searches against the non-redundant database at NCBI'
+    desc 'Whether to annotate using remote blast searches against the non-redundant database at NCBI. (Default false)'
   end
 
   option :ncbi_blast_program do
@@ -251,6 +251,12 @@ Choice.options do
     long '--presence_absence_core'
     desc 'Include core genes in presence absence file. Generally this will be superfluous'
   end
+
+  option :annotation_order do
+    short '-ao'
+    long '--annotation_order'
+    desc 'If specified as a comma separated list this add annotation columns to the presence absence data. e,g gene,protein_id,product'
+  end 
 
   option :genbank_strain_file_list do
     short '-gsfl'
@@ -357,35 +363,35 @@ when "create"
   end
 when "annotate"
 
-    unless Choice.choices[:reference_blast_sequences]
-      print_help_for(core_access_command)
-      puts
-      abort("You must supply at least one reference sequence with which to annotate") 
-    end
-    reference_sequences = Choice.choices[:reference_blast_sequences].split(",")
-    if Choice.choices[:annotate_versus_nr] 
-    annotate_clusters(
-      :db_location => Choice.choices[:database],
-      :root_folder => Choice.choices[:output_dir],
-      :blast_dir => Choice.choices[:blast_dir],
-      :fastacmd_dir => Choice.choices[:blast_dir],
-      :reference_genomes => reference_sequences,
-      :reference_blast_program => Choice.choices[:reference_blast_program],
-      :reference_percent_identity_cutoff => Choice.choices[:reference_percent_identity_cutoff],
-      :reference_minimum_hit_length => Choice.choices[:reference_minimum_hit_length],
-      :local_blast_db => Choice.choices[:local_blast_database],
-      :local_db_blast_program => Choice.choices[:local_database_blast_program],
-      :local_db_percent_identity_cutoff => Choice.choices[:local_database_percent_identity_cutoff],
-      :local_db_minimum_hit_length => Choice.choices[:local_database_minimum_hit_length],
-      :ncbi_blast_program => Choice.choices[:ncbi_blast_program],
-      :ncbi_percent_identity_cutoff => Choice.choices[:ncbi_percent_identity_cutoff],
-      :ncbi_minimum_hit_length => Choice.choices[:ncbi_minimum_hit_length],
-      :annotate_vs_local_db => Choice.choices.has_key?("local_blast_database"),
-      :annotate_by_remote_blast => Choice.choices.has_key?("annotate_versus_nr"),
-      :accept_reciprocal_hits_with_multiple_hits_incl_query  => true,
-      :accept_first_reciprocal_hit_containing_query => false,
-      :parallel_processors => Choice.choices[:number_of_processors])
+  unless Choice.choices[:reference_blast_sequences]
+    print_help_for(core_access_command)
+    puts
+    abort("You must supply at least one reference sequence with which to annotate") 
   end
+  reference_sequences = Choice.choices[:reference_blast_sequences].split(/\s*,\s*/)
+
+  annotate_clusters(
+    :db_location => Choice.choices[:database],
+    :root_folder => Choice.choices[:output_dir],
+    :blast_dir => Choice.choices[:blast_dir],
+    :fastacmd_dir => Choice.choices[:blast_dir],
+    :reference_genomes => reference_sequences,
+    :reference_blast_program => Choice.choices[:reference_blast_program],
+    :reference_percent_identity_cutoff => Choice.choices[:reference_percent_identity_cutoff],
+    :reference_minimum_hit_length => Choice.choices[:reference_minimum_hit_length],
+    :local_blast_db => Choice.choices[:local_blast_database],
+    :local_db_blast_program => Choice.choices[:local_database_blast_program],
+    :local_db_percent_identity_cutoff => Choice.choices[:local_database_percent_identity_cutoff],
+    :local_db_minimum_hit_length => Choice.choices[:local_database_minimum_hit_length],
+    :ncbi_blast_program => Choice.choices[:ncbi_blast_program],
+    :ncbi_percent_identity_cutoff => Choice.choices[:ncbi_percent_identity_cutoff],
+    :ncbi_minimum_hit_length => Choice.choices[:ncbi_minimum_hit_length],
+    :annotate_vs_local_db => Choice.choices.has_key?("local_blast_database"),
+    :annotate_by_remote_blast => Choice.choices.has_key?("annotate_versus_nr"),
+    :accept_reciprocal_hits_with_multiple_hits_incl_query  => true,
+    :accept_first_reciprocal_hit_containing_query => false,
+    :parallel_processors => Choice.choices[:number_of_processors])
+
 when "search"
   default_headings_and_fields = [["id", "id"], ["cutoff", "cutoff"], ["parent cluster?", "is_parent_cluster"], ["number of members", "number_of_members"], ["number of strains", "number_of_strains"], ["strains", "strain_names"]]
   if Choice.choices[:core_genes]
@@ -408,10 +414,16 @@ when "output"
     else
       without_core_genes = true
     end
+    if Choice.choices[:annotation_order]
+      annotation_order = Choice.choices[:annotation_order].split(/\s*,\s*/)
+    else
+      annotation_order = nil
+    end
     output_gene_presence_absence(
           :db_location =>  Choice.choices[:database],
           :output_filepath => "#{Choice.choices[:output_dir]}/#{Choice.choices[:presence_absence_file]}",
-          :without_core_genes => without_core_genes)
+          :without_core_genes => without_core_genes,
+          :annotation_order => annotation_order)
   elsif Choice.choices[:genbank_strain_file_list]
     require 'bioutils/rich_sequence_utils'
     sequence_files, strain_names = extract_file_and_strain_names_from_file_list(Choice.choices)
