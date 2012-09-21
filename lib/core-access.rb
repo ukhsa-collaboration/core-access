@@ -30,7 +30,7 @@ def print_help_for(command)
   end
 
   command_options = Hash.new
-  if command.empty?
+  if command.nil? || command.empty?
     commands = ["create", "annotate", "search", "output"]
   else
     commands = [command]
