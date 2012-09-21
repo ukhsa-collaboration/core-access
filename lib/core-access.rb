@@ -29,10 +29,19 @@ def print_help_for(command)
     choice_option = choice_options.shift
   end
 
-  command_options = Array.new
-  until (choice_option.class == String && choice_option !~ /Arguments for #{command}/ && choice_option =~ /Arguments for/) || choice_option.nil? do
-    choice_option = choice_options.shift
-    command_options << choice_option.last if choice_option.class == Array
+  command_options = Hash.new
+  if command.empty?
+    commands = ["create", "annotate", "search", "output"]
+  else
+    commands = [command]
+  end
+
+  commands.each do |command|
+    command_options[command] = Array.new
+    until (choice_option.class == String && choice_option !~ /Arguments for #{command}/ && choice_option =~ /Arguments for/) || choice_option.nil? do
+      choice_option = choice_options.shift
+      command_options[command] << choice_option.last if choice_option.class == Array
+    end
   end
 
   puts "Usage: core-access #{command} OPTIONS"
@@ -41,9 +50,12 @@ def print_help_for(command)
     print_option(common_option)
   end
   puts
-  puts "Options for the core-access #{command} command:"
-  command_options.each do |command_option|
-    print_option(command_option)
+  commands.each do |command|
+    puts "Options for the core-access #{command} command:"
+    command_options[command].each do |command_option|
+      print_option(command_option)
+    end
+    puts
   end
 end
 

@@ -228,7 +228,7 @@ Choice.options do
   option :unique_genes do
     short '-ug'
     long '--unique_genes'
-    desc 'Find unique genes for a set of starins (specified by the -sn argument) in the cluster database'
+    desc 'Find unique genes for a set of strains (specified by the -sn argument) in the cluster database'
   end
 
   option :strain_names do
