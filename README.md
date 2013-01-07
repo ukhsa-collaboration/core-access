@@ -21,7 +21,7 @@ Installation
 Core Access will run on any Unix-based machine including MacOSX. It also requires Ruby (>=1.8.7 and easily installed by most systems package manager e.g yum or apt or via [Ruby Version Manager RVM](https://rvm.io)), [Sqlite3](http://www.sqlite.org/), [CD-HIT](http://weizhong-lab.ucsd.edu/cd-hit) and in most cases [Glimmer3](http://www.cbcb.umd.edu/software/glimmer) will also be needed.  
 If these requirements are met then installation of Core Access is as simple as running the command  
  `gem install core-access`  
-This uses the Ruby package manager, Rubygems, to install the program and all it's dependencies.
+This uses the Ruby package manager, Rubygems, to install the program and all its dependencies.
 
 Running Core-Access
 -------------------
