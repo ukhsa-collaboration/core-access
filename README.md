@@ -21,10 +21,12 @@ Installation
 Core Access will run on any Unix-based machine including MacOSX. It also requires Ruby (>=1.8.7 and easily installed by most systems package manager e.g yum or apt or via [Ruby Version Manager RVM](https://rvm.io)), [Sqlite3](http://www.sqlite.org/), [CD-HIT](http://weizhong-lab.ucsd.edu/cd-hit) and in most cases [Glimmer3](http://www.cbcb.umd.edu/software/glimmer) will also be needed.  
 If these requirements are met then installation of Core Access is as simple as running the command  
  `gem install core-access`  
-This uses the Ruby package manager, Rubygems, to install the program and all it's dependencies.
+This uses the Ruby package manager, Rubygems, to install the program and all its dependencies.
 
 Running Core-Access
 -------------------
+The basic usage is 
+`core-access COMMAND [OPTIONS]`  
 Core Access can be run using one of several commands. These are
 
 *  create (the key command to cluster proteins and create the database that records the clustering information)
@@ -43,5 +45,19 @@ All commands require two essential options
 *  `-od/--output_dir` The path to the output directory where files will be created as part of the process
 
 ###Create###
-This command will take all sequences supplied (usually genomic sequences) and generate putative proteins from them. If the sequence file supplied is in a rich sequence format such as GenBank or EMBL then the CDS features within these files will be used to specify the genes, otherwise if supplied in fasta format the genes will be predicted using [Glimmer3](http://www.cbcb.umd.edu/software/glimmer). Therefore if you are supplying unannotated sequence in fasta format you will need to install Glimmer3.
+Additional options required for this are 
+
+* `-fl/--sequence_file_list` The path and name of a file containing the sequences that contain the genes to be clustered. These can be in fasta, genbank or embl format. Each filepath should be listed on a new line in the file and the strain name for each sequence file on the same line separated by tab.
+* `-fd/--sequence_file_dir` [optional]. A root directory where all the sequence files can be found
+* `-gd/--glimmer-dir` The path to the directory that contains the Glimmer3 files (binaries and scripts)
+* `-ts/--training_sequence_path` The path and filename of a genbank sequence whose coding sequences will be used to train the Glimmer3 gene prediction software.
+* `-cd/--cdhit_dir` The path to the directory that contains the cd-hit executable
+* `-cc/--clustering_cutoffs` The cutoffs used when performing the initial heirachical clustering with cd-hit (default 99-98-95-90-85). To specify something other than the default list the cutoffs in descending order separated by hyphens as per the default.
+* `-sc/--supercluster_cutoff` The cutoff for making heirachical superclusters of clusters with cd-hit. This feature is implemented and encoded in the final database but is not yet widely used in the subsequent commands such as search.
+
+Creates runs the following processes
+
+1.  Take all sequences supplied (usually genomic sequences) and generate putative proteins from them. If the sequence file supplied is in a rich sequence format such as GenBank or EMBL then the CDS features within these files will be used to specify the genes, otherwise if supplied in fasta format the genes will be predicted using [Glimmer3](http://www.cbcb.umd.edu/software/glimmer). Therefore if you are supplying unannotated sequence in fasta format you will need to install Glimmer3.  
+2. Once all the genes have been extracted or predicted these will be converted to their putative amino acid sequence and combined into a single file. This file will be used as the input for CD-HIT.
+3. CD-HIT will be running in a heirachical fashion using the cutoffs specified by the -cc option. Initially all the putative protein sequences will be clustered using the highest cutoff specified and these clusters will then be clustered (see [Heirachical Clustering](http://weizhong-lab.ucsd.edu/cd-hit/wiki/doku.php?id=cd-hit_user_guide#hierarchically_clustering))
 
